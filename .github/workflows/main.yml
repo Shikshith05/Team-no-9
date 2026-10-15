@@ -1,0 +1,29 @@
+
+name: Repository CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify project documents
+        run: |
+          test -f README.md
+          test -f Team9_Personal_Wealth_Management_SAD.pdf
+          test -f Team9_Personal_Wealth_Management_STP.pdf
+          test -f "Team9_SRS_Personal_Wealth_Management(FS).pdf"
+          echo "All required project documents are present."
