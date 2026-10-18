@@ -9,11 +9,17 @@
 //   ?mock=stale   one stock price flagged stale
 //   ?mock=empty   a user with no assets yet
 //   ?mock=error   the request fails
+// and change the sample data from the browser console with window.pwmMock
+// (see mockAssets.js) to watch the dashboard refresh.
 
 import { buildDashboard } from '../lib/dashboard.js';
-import { MOCK_ASSETS, MOCK_ASSETS_STALE } from './mockAssets.js';
+import { getMockAssets, MOCK_ASSETS_STALE, mockStore } from './mockAssets.js';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_API !== 'false';
+
+if (USE_MOCK && typeof window !== 'undefined') {
+  window.pwmMock = mockStore;
+}
 
 export async function fetchDashboard() {
   if (USE_MOCK) return mockDashboard();
@@ -33,5 +39,5 @@ async function mockDashboard() {
   const mode = new URLSearchParams(window.location.search).get('mock');
   if (mode === 'error') throw new Error('Could not reach the server.');
   if (mode === 'empty') return buildDashboard([]);
-  return buildDashboard(mode === 'stale' ? MOCK_ASSETS_STALE : MOCK_ASSETS, '2026-10-17T10:30:00Z');
+  return buildDashboard(mode === 'stale' ? MOCK_ASSETS_STALE : getMockAssets(), new Date().toISOString());
 }

@@ -10,4 +10,8 @@ export default defineConfig({
       '/api': 'http://localhost:5000',
     },
   },
+  test: {
+    // Unit tests only; browser tests in e2e/ run with Playwright (npm run test:e2e).
+    include: ['src/**/*.test.{js,jsx}'],
+  },
 })
