@@ -32,9 +32,16 @@ export function recordMockCall(method, path, body) {
   mockCalls.push({ method, path, body });
 }
 
-/** What the auth middleware does for a missing or expired session (SAD 3.9). */
+let sessionsRevoked = false;
+
+/** What the auth middleware does for a missing, expired or revoked session (SAD 3.9). */
 export function requireMockSession() {
-  if (mockMode() === 'unauth') {
+  if (sessionsRevoked || mockMode() === 'unauth') {
     throw new ApiError(401, { code: 'UNAUTHENTICATED', message: 'Your session has expired.' });
   }
+}
+
+/** A password reset sets users.token_valid_after, which ends every existing session. */
+export function revokeMockSessions() {
+  sessionsRevoked = true;
 }

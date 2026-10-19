@@ -834,6 +834,65 @@ a {
   line-height: 1.25;
 }
 
+.auth-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.button-block {
+  width: 100%;
+}
+
+.field-label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.form > .text-link {
+  align-self: flex-start;
+}
+
+.text-link {
+  padding: 2px 0;
+  color: var(--accent);
+  font-weight: 600;
+  text-underline-offset: 2px;
+}
+
+.text-link:focus-visible,
+.back-link:focus-visible,
+.checkbox input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.checkbox input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.form-note {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: 0.875rem;
+}
+
 /* ---------- Tablet: 768px and up ---------- */
 
 @media (min-width: 768px) {

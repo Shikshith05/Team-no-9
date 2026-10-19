@@ -6,6 +6,8 @@ import AssetsPage from './pages/AssetsPage.jsx';
 import ValuationPage from './pages/ValuationPage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import PlaceholderPage from './pages/PlaceholderPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import { matchPath, useHashLocation } from './lib/router.js';
@@ -28,6 +30,13 @@ const ROUTES = [
   { path: '/reports', title: 'Reports', nav: 'Reports', render: () => <PlaceholderPage title="Reports" /> },
   { path: '/settings', title: 'Settings', nav: 'Settings', render: () => <PlaceholderPage title="Settings" /> },
   { path: '/login', title: 'Log in', layout: 'auth', render: () => <LoginPage /> },
+  { path: '/forgot-password', title: 'Reset your password', layout: 'auth', render: () => <ForgotPasswordPage /> },
+  {
+    path: '/reset-password',
+    title: 'Choose a new password',
+    layout: 'auth',
+    render: ({ query }) => <ResetPasswordPage token={query.get('token') ?? ''} />,
+  },
 ];
 
 const NOT_FOUND = { title: 'Page not found', render: () => <NotFoundPage /> };
@@ -61,9 +70,11 @@ export default function App() {
     document.querySelector('main h1')?.focus();
   }, [location.path]);
 
+  // A new path or query (e.g. another reset token) gives the screen fresh state.
+  const screenKey = `${location.path}?${location.query}`;
   return (
     <AppShell variant={route.layout} current={route.nav}>
-      <Fragment key={location.path}>{route.render({ params, query: location.query })}</Fragment>
+      <Fragment key={screenKey}>{route.render({ params, query: location.query })}</Fragment>
     </AppShell>
   );
 }

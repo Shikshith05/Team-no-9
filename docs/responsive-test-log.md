@@ -37,10 +37,14 @@ The trend chart is also checked with its tooltip open at the left edge, the midd
 | Assets: valuation history (#12) | Pass | Pass | Pass | Automated, 4 rows |
 | Assets: 403 / 404 / "log in again" / empty states (#12) | n/a | n/a | Pass | Automated at 1280px only; simple text cards like the dashboard notices |
 | Add / edit / delete asset forms | n/a | n/a | n/a | Not built yet (asset issues). Retest when they are merged. |
-| Login / register | n/a | n/a | n/a | Not built yet (auth issues). Retest when they are merged. |
+| Login (placeholder, #32) | Pass | Pass | Pass | Automated. Sign-in itself isn't wired up until the auth API exists |
+| Forgot password: form, inline error, "check your email" (#32) | Pass | Pass | Pass | Automated |
+| Reset password: form with errors, success, expired link (#32) | Pass | Pass | Pass | Automated; invalid / used links share the expired-link layout |
+| Register | n/a | n/a | n/a | Not built yet (auth issues). Retest when it is merged. |
 
 Browsers: Chromium tested automatically. Firefox, Safari and Edge still need a manual pass, as TC-UX-01 requires.
-Dark mode was checked at 360px and 1280px (Sprint 2: dashboard with the trend chart, by screenshot).
+Dark mode was checked at 360px and 1280px (Sprint 2, by screenshot: dashboard with the trend chart and asset
+screens at both widths; login, forgot and reset password screens at 360px).
 
 ## Issues found and how they were resolved
 
@@ -63,3 +67,5 @@ Dark mode was checked at 360px and 1280px (Sprint 2: dashboard with the trend ch
 | 15 | 1280px | The form and history pages (max 720px wide) were centred, so their left edge didn't line up with the logo and the rest of the app. Found in the screenshot review. | Their content keeps the 720px cap but is left-aligned with the page. |
 | 16 | All | The default light-grey border (#e3e6ec) made text fields almost invisible on white, below the 3:1 contrast that form controls need. | Inputs use a darker `--input-border` token in both light and dark mode. |
 | 17 | All | Every property card has links named "Update value" and "History", which a screen reader lists as identical links. | Each link has hidden text with the property name ("Update value of Apartment, Whitefield"). |
+| 18 | 360px | The "Password" label and the "Forgot password?" link share one row; with larger text settings they no longer fit side by side. | The row wraps, so the link drops under the label instead of overflowing. |
+| 19 | 360px | On phones a narrow submit button under a form is easy to miss with a thumb. | Submit buttons on the login, forgot and reset screens span the full width of the card. |

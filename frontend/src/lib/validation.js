@@ -33,3 +33,39 @@ export function validateAmount(input, { max = MAX_PROPERTY_VALUE, maxLabel = 'â‚
 function isPlainNumber(text) {
   return /^(\d+\.?\d*|\.\d+)$/.test(text);
 }
+
+// The checks below return an error message, or null when the input is fine.
+
+/** Email format check for the account screens. */
+export function validateEmail(email) {
+  const value = String(email ?? '').trim();
+  if (value === '') return 'Enter your email address.';
+  if (value.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    return 'Enter a valid email address, like name@example.com.';
+  }
+  return null;
+}
+
+export const PASSWORD_MIN_LENGTH = 10;
+export const PASSWORD_MAX_LENGTH = 128;
+
+/**
+ * Password policy from SAD 3.9 (PWM-F-001): 10 to 128 characters with at least
+ * one letter and one digit. The "not a common password" rule needs the server's
+ * list, so only the API checks it. Passwords are not trimmed.
+ */
+export function validatePassword(password) {
+  const value = String(password ?? '');
+  if (value === '') return 'Enter a new password.';
+  if (value.length < PASSWORD_MIN_LENGTH) return `Use at least ${PASSWORD_MIN_LENGTH} characters.`;
+  if (value.length > PASSWORD_MAX_LENGTH) return `Use at most ${PASSWORD_MAX_LENGTH} characters.`;
+  if (!/\p{L}/u.test(value)) return 'Include at least one letter.';
+  if (!/\p{Nd}/u.test(value)) return 'Include at least one number.';
+  return null;
+}
+
+export function validatePasswordConfirmation(password, confirmation) {
+  if (!confirmation) return 'Enter the new password again.';
+  if (confirmation !== password) return "The passwords don't match.";
+  return null;
+}
