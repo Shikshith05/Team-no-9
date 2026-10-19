@@ -12,6 +12,8 @@
   --warn-bg: #fff4d6;
   --warn-text: #7a5300;
   --danger: #b42318;
+  --positive: #1f7a4d;
+  --negative: #b42318;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
 
   --c-real-estate: #2f6fdb;
@@ -44,6 +46,8 @@
     --warn-bg: #3a2e10;
     --warn-text: #f3cf73;
     --danger: #ff8a80;
+    --positive: #4cc38a;
+    --negative: #ff8a80;
     --shadow: none;
 
     --c-real-estate: #6a9cf0;
@@ -378,6 +382,9 @@ a {
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 40px;
   padding: 8px 16px;
   border: 0;
@@ -386,7 +393,232 @@ a {
   color: var(--surface);
   font: inherit;
   font-weight: 600;
+  text-decoration: none;
   cursor: pointer;
+}
+
+.button:focus-visible,
+.segmented-option:focus-visible,
+.trend-plot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Headings get focus after navigation; no ring needed for that. */
+[tabindex='-1']:focus {
+  outline: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.error-text {
+  color: var(--danger);
+}
+
+.notice-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.notice-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.notice-card .button {
+  margin-top: 8px;
+}
+
+/* ---------- Trend (PWM-F-032) ---------- */
+
+.trend {
+  grid-column: 1 / -1;
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.segmented-option {
+  min-width: 44px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented-option[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.trend-body {
+  margin-top: 12px;
+  transition: opacity 0.15s ease;
+}
+
+.trend-body.is-pending {
+  opacity: 0.55;
+}
+
+.trend-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+}
+
+.trend-change {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-change-up {
+  color: var(--positive);
+}
+
+.trend-change-down {
+  color: var(--negative);
+}
+
+.trend-plot {
+  position: relative;
+  border-radius: 8px;
+}
+
+.trend-svg {
+  display: block;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+
+.trend-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.trend-axis {
+  fill: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.trend-area {
+  fill: var(--accent);
+  fill-opacity: 0.12;
+}
+
+.trend-guide {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.trend-dot {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.trend-tooltip {
+  position: absolute;
+  top: 4px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.18);
+}
+
+.trend-tooltip-value {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The tooltip sits beside the point on the side with more room, so it never leaves the card. */
+.trend-tooltip-start {
+  transform: translateX(-8px);
+}
+
+.trend-tooltip-middle {
+  transform: translateX(-50%);
+}
+
+.trend-tooltip-end {
+  transform: translateX(calc(-100% + 8px));
+}
+
+.trend-message {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px 0 8px;
+}
+
+.trend-empty-title {
+  font-weight: 600;
+}
+
+.trend-skeleton {
+  min-height: 220px;
+  margin-top: 12px;
+  border-radius: 8px;
+}
+
+/* ---------- Auth screens ---------- */
+
+.auth-page {
+  max-width: 480px;
+}
+
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-card h1 {
+  font-size: 1.5rem;
+  line-height: 1.25;
 }
 
 /* ---------- Tablet: 768px and up ---------- */
