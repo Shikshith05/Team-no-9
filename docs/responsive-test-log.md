@@ -31,7 +31,12 @@ The trend chart is also checked with its tooltip open at the left edge, the midd
 | Dashboard: net-worth trend (#17) | Pass | Pass | Pass | Automated, including the tooltip at both edges and keyboard reading |
 | Dashboard: trend empty / error / "log in again" states | Pass | Pass | Pass | Automated |
 | Top navigation | Pass | Pass | Pass | Scrolls inside its own strip at 360px (by design) |
-| Asset forms | n/a | n/a | n/a | Not built yet (asset issues). Retest when they are merged. |
+| Assets: real estate list (#12) | Pass | Pass | Pass | Automated. 1, 2 and 3 cards per row |
+| Assets: update value form, with an inline error (#12) | Pass | Pass | Pass | Automated, single column at every width |
+| Assets: value saved confirmation (#12) | Pass | Pass | Pass | Automated, with a ₹1,23,45,67,890.50 value |
+| Assets: valuation history (#12) | Pass | Pass | Pass | Automated, 4 rows |
+| Assets: 403 / 404 / "log in again" / empty states (#12) | n/a | n/a | Pass | Automated at 1280px only; simple text cards like the dashboard notices |
+| Add / edit / delete asset forms | n/a | n/a | n/a | Not built yet (asset issues). Retest when they are merged. |
 | Login / register | n/a | n/a | n/a | Not built yet (auth issues). Retest when they are merged. |
 
 Browsers: Chromium tested automatically. Firefox, Safari and Edge still need a manual pass, as TC-UX-01 requires.
@@ -53,3 +58,8 @@ Dark mode was checked at 360px and 1280px (Sprint 2: dashboard with the trend ch
 | 10 | 360px | The value-axis labels (₹1.1 Cr, ₹0.95 Cr …) need different widths, and a fixed left margin either clipped them or wasted space. | The left margin is computed from the longest label. |
 | 11 | All | On the 1Y and All ranges the date labels read "Oct 25", which looks like 25 October next to the "19 Oct" labels of the 1M range. Found in the screenshot review. | Month labels use the four-digit year ("Oct 2025"). |
 | 12 | All (dark) | The selected range button (1M / 6M / 1Y / All) was hard to tell apart from the others in dark mode. Found in the screenshot review. | The selected button uses the same accent background as the current nav link. |
+| 13 | All | On the update value form, pressing Save first blurred the field, and the check that ran on blur showed the error line. That pushed the Save button about 20px down before the mouse was released, so the click was lost and the form never submitted. Found by the e2e test. | The value is checked on submit and then on every keystroke, never on blur, so the button doesn't move during a click. |
+| 14 | 360px | A history table with separate Date, Value, Change and Source columns doesn't fit a phone without scrolling. | The change from the previous valuation is shown in small text under the value, so three columns fit at 360px, even with a 15-character rupee amount. |
+| 15 | 1280px | The form and history pages (max 720px wide) were centred, so their left edge didn't line up with the logo and the rest of the app. Found in the screenshot review. | Their content keeps the 720px cap but is left-aligned with the page. |
+| 16 | All | The default light-grey border (#e3e6ec) made text fields almost invisible on white, below the 3:1 contrast that form controls need. | Inputs use a darker `--input-border` token in both light and dark mode. |
+| 17 | All | Every property card has links named "Update value" and "History", which a screen reader lists as identical links. | Each link has hidden text with the property name ("Update value of Apartment, Whitefield"). |

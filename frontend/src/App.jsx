@@ -2,12 +2,31 @@
 import { Fragment, useEffect, useRef } from 'react';
 import AppShell from './components/AppShell.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import AssetsPage from './pages/AssetsPage.jsx';
+import ValuationPage from './pages/ValuationPage.jsx';
+import HistoryPage from './pages/HistoryPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
+import PlaceholderPage from './pages/PlaceholderPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import { matchPath, useHashLocation } from './lib/router.js';
 
 const ROUTES = [
   { path: '/', title: 'Dashboard', nav: 'Dashboard', render: () => <Dashboard /> },
+  { path: '/assets', title: 'Assets', nav: 'Assets', render: () => <AssetsPage /> },
+  {
+    path: '/assets/:id/valuation',
+    title: 'Update property value',
+    nav: 'Assets',
+    render: ({ params }) => <ValuationPage assetId={params.id} />,
+  },
+  {
+    path: '/assets/:id/history',
+    title: 'Valuation history',
+    nav: 'Assets',
+    render: ({ params }) => <HistoryPage assetId={params.id} />,
+  },
+  { path: '/reports', title: 'Reports', nav: 'Reports', render: () => <PlaceholderPage title="Reports" /> },
+  { path: '/settings', title: 'Settings', nav: 'Settings', render: () => <PlaceholderPage title="Settings" /> },
   { path: '/login', title: 'Log in', layout: 'auth', render: () => <LoginPage /> },
 ];
 

@@ -8,6 +8,10 @@
 //   ?mock=trend-empty  the dashboard loads, but there is no net-worth history yet
 //   ?mock=trend-error  the dashboard loads, but the trend request fails
 //   ?mock=unauth       every request answers 401, as with an expired session
+//   ?mock=forbidden    saving a valuation answers 403 (not your asset)
+//   ?mock=invalid      saving a valuation answers 400 with a server field error
+// The asset at #/assets/mock-re-other-user/... belongs to "another user" and
+// always answers 403.
 
 import { ApiError } from './http.js';
 
@@ -19,6 +23,13 @@ export function mockMode() {
 
 export function mockDelay(ms = 300) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Requests made to the mock API, newest last; tests read it via window.pwmMock.calls. */
+export const mockCalls = [];
+
+export function recordMockCall(method, path, body) {
+  mockCalls.push({ method, path, body });
 }
 
 /** What the auth middleware does for a missing or expired session (SAD 3.9). */

@@ -7,6 +7,7 @@
   --text: #1c2230;
   --text-muted: #5d6677;
   --border: #e3e6ec;
+  --input-border: #8a93a3;
   --accent: #1f6f5c;
   --accent-soft: #e3f1ec;
   --warn-bg: #fff4d6;
@@ -41,6 +42,7 @@
     --text: #e8ebf1;
     --text-muted: #9aa3b2;
     --border: #262c37;
+    --input-border: #6b7586;
     --accent: #5cc4a6;
     --accent-soft: #173229;
     --warn-bg: #3a2e10;
@@ -73,6 +75,7 @@ body {
 
 h1,
 h2,
+h3,
 p {
   margin: 0;
 }
@@ -604,6 +607,216 @@ a {
   border-radius: 8px;
 }
 
+.text-positive {
+  color: var(--positive);
+}
+
+.text-negative {
+  color: var(--negative);
+}
+
+/* ---------- Assets (PWM-F-022) ---------- */
+
+.section-title {
+  margin-bottom: 12px;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+/* Form and detail pages: capped width, but left-aligned with the top bar. */
+.narrow-page > * {
+  max-width: 720px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  margin-bottom: 4px;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.property-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gutter);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.property {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.property-name {
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.property-value {
+  font-size: 1.125rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.page-actions {
+  margin-top: var(--gutter);
+}
+
+.button-secondary {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.badge-accent {
+  display: table;
+  margin-top: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---------- Forms (single column at every width, SAD 3.10) ---------- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.field-hint {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.field-error,
+.form-error {
+  color: var(--danger);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.form-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+/* ---------- Valuation history table ---------- */
+
+/* Three columns fit at 360px; the change sits under the value instead of in a fourth column. */
+.table-card {
+  padding: 0;
+  overflow-x: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-table th,
+.history-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.history-table th:first-child,
+.history-table td:first-child {
+  padding-left: 16px;
+}
+
+.history-table th:last-child,
+.history-table td:last-child {
+  padding-right: 16px;
+}
+
+.history-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.history-table th {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.history-value {
+  display: block;
+  font-weight: 600;
+}
+
+.history-change {
+  display: block;
+  font-size: 0.8125rem;
+}
+
 /* ---------- Auth screens ---------- */
 
 .auth-page {
@@ -666,6 +879,16 @@ a {
     min-width: 4.5em;
     text-align: right;
   }
+
+  .property-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .history-table th,
+  .history-table td {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
 }
 
 /* ---------- Desktop: 1280px and up ---------- */
@@ -674,5 +897,9 @@ a {
   .dashboard-grid {
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
     align-items: start;
+  }
+
+  .property-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

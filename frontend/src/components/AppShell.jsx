@@ -1,11 +1,11 @@
 // App frame: top bar with the product name and main navigation. Auth screens
 // (login, password reset) get the bar without the navigation.
-// Nav items other than Dashboard are placeholders until those screens exist (SAD 4.8).
+// Reports and Settings are placeholders until those screens exist (SAD 4.8).
 const NAV = [
   { label: 'Dashboard', href: '#/' },
-  { label: 'Assets', href: '#' },
-  { label: 'Reports', href: '#' },
-  { label: 'Settings', href: '#' },
+  { label: 'Assets', href: '#/assets' },
+  { label: 'Reports', href: '#/reports' },
+  { label: 'Settings', href: '#/settings' },
 ];
 
 export default function AppShell({ children, current, variant }) {
