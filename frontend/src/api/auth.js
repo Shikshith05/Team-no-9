@@ -16,6 +16,9 @@ import { mockForgotPassword, mockResetPassword } from './mockAuth.js';
  *     its SHA-256 hash in password_reset_tokens with expires_at = now + 30 min,
  *     and queue an email with the link
  *       <app origin>/#/reset-password?token=<token>
+ *     Encode the token as hex or base64url. The reset page reads it with
+ *     URLSearchParams, which turns "+" into a space, so a plain base64 token
+ *     would break unless it were percent-encoded.
  *     The token sits in the URL hash, so it never reaches server logs or the
  *     Referer header.
  * 400 VALIDATION_ERROR with fields [{"field":"email",...}] for a malformed email.
