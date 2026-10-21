@@ -72,10 +72,19 @@ export function filterRange(points, range, today) {
 export function niceTicks(min, max, maxTicks = 5) {
   if (!Number.isFinite(min) || !Number.isFinite(max)) throw new Error('niceTicks needs finite numbers');
   if (min > max) [min, max] = [max, min];
-  if (min === max) {
-    const pad = Math.max(Math.abs(min) * 0.05, 100);
-    max += pad;
-    min = min >= 0 && min - pad < 0 ? 0 : min - pad;
+  // Keep the band at least 1% of the value (and ₹100). Otherwise a nearly flat
+  // series (₹50 of change on ₹1 crore) gets ticks a few rupees apart, every lakh /
+  // crore label reads the same, and the tiny wobble fills the whole chart height.
+  const minSpan = Math.max(Math.abs(max) * 0.01, 100);
+  if (max - min < minSpan) {
+    const nonNegative = min >= 0;
+    const mid = (min + max) / 2;
+    min = mid - minSpan / 2;
+    max = mid + minSpan / 2;
+    if (nonNegative && min < 0) {
+      max -= min;
+      min = 0;
+    }
   }
 
   const rough = (max - min) / Math.max(maxTicks - 1, 1);

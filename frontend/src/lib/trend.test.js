@@ -117,6 +117,24 @@ describe('PWM-F-032: value axis scaling', () => {
     expect(flat.min).toBeLessThan(500000);
     expect(flat.max).toBeGreaterThan(500000);
     expect(niceTicks(0, 0).min).toBe(0);
+    expect(niceTicks(0, 30).min).toBe(0);
+  });
+
+  it('keeps labels distinct for a nearly flat series', () => {
+    // ₹50 of change on ₹1.03 crore, half a rupee, and 40 paise on ₹500.
+    for (const [min, max] of [
+      [10345000, 10345050],
+      [10345000, 10345000.5],
+      [500, 500.4],
+    ]) {
+      const scale = niceTicks(min, max, 4);
+      const labels = scale.ticks.map((t) => formatAxisINR(t, scale.step, scale.max));
+      expect(new Set(labels).size, labels.join(', ')).toBe(labels.length);
+      expect(scale.ticks[0]).toBeLessThanOrEqual(min);
+      expect(scale.ticks.at(-1)).toBeGreaterThanOrEqual(max);
+      // The band is at least 1% of the value, so a tiny wobble doesn't fill the chart.
+      expect(scale.max - scale.min).toBeGreaterThanOrEqual(Math.max(max * 0.01, 100));
+    }
   });
 
   it('labels the axis in lakh or crore with enough decimals to stay distinct', () => {
