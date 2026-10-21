@@ -1,31 +1,9 @@
 // Dashboard checks at the TC-UX-01 widths, using the mock data source.
 // Covers PWM-F-030 (#15), PWM-F-031 (#16) and PWM-NF-004 (#25).
 import { expect, test } from '@playwright/test';
+import { expectNoHorizontalScroll, expectNothingOffscreen, smallestFontSize, WIDTHS } from './helpers.js';
 
-const WIDTHS = [360, 768, 1280];
 const STATES = ['', 'stale', 'empty', 'error'];
-
-async function expectNoHorizontalScroll(page) {
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  expect(scrollWidth, 'page must not scroll sideways').toBeLessThanOrEqual(clientWidth);
-}
-
-/** Every element inside the page must stay within the viewport (except the nav strip, which scrolls by design). */
-async function expectNothingOffscreen(page) {
-  const offenders = await page.evaluate(() => {
-    const vw = document.documentElement.clientWidth;
-    return [...document.querySelectorAll('main *')]
-      .filter((el) => {
-        const r = el.getBoundingClientRect();
-        return r.width > 0 && (r.right > vw + 0.5 || r.left < -0.5);
-      })
-      .map((el) => el.className || el.tagName);
-  });
-  expect(offenders, 'elements overflowing the viewport').toEqual([]);
-}
 
 for (const width of WIDTHS) {
   test.describe(`${width}px wide`, () => {
@@ -54,15 +32,9 @@ for (const width of WIDTHS) {
       await expect(legend.locator('.legend-percent')).toHaveText(['79.27%', '11.60%', '6.23%', '2.90%']);
       await expect(page.getByRole('img', { name: /Asset allocation:/ })).toBeVisible();
 
-      // Text stays readable: nothing in the dashboard below 12px.
-      const smallest = await page.evaluate(() =>
-        Math.min(
-          ...[...document.querySelectorAll('main *')]
-            .filter((el) => el.childNodes.length && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
-            .map((el) => parseFloat(getComputedStyle(el).fontSize)),
-        ),
-      );
-      expect(smallest).toBeGreaterThanOrEqual(12);
+      // Text stays readable: nothing in the dashboard (trend chart included) below 12px.
+      await expect(page.getByTestId('trend-chart')).toBeVisible();
+      expect(await smallestFontSize(page)).toBeGreaterThanOrEqual(12);
     });
   });
 }
@@ -75,6 +47,8 @@ test('chart refreshes when assets change (PWM-F-031)', async ({ page }) => {
   await page.evaluate(() => window.pwmMock.setValue('mock-ca-1', '5050000.00'));
   await expect(page.getByTestId('net-worth-value')).toHaveText('₹1,51,45,000.00');
   await expect(page.getByTestId('allocation-legend').locator('.legend-item').nth(1)).toContainText('Cash & bank');
+  // PWM-F-032: today's point on the trend follows the change too.
+  await expect(page.getByTestId('trend-chart')).toHaveAttribute('data-last-value', '15145000.00');
 
   // Delete a holding.
   await page.evaluate(() => window.pwmMock.remove('mock-re-2'));
