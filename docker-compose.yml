@@ -1,20 +1,59 @@
+version: '3.8'
 
 services:
-  db:
-    image: pgvector/pgvector:pg16
-    container_name: pwm-postgres
-    restart: unless-stopped
-    env_file:
-      - .env
+  # frontend app block
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
-      - "127.0.0.1:5432:5432"
-    volumes:
-      - pwm-postgres-data:/var/lib/postgresql/data
+      - "3000:3000"
+    networks:
+      - wealth-network
+    # PWM-NF-003: Check if frontend asset server is responsive every 30 seconds
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 10s
+    restart: always
 
-volumes:
-  pwm-postgres-data:
+  # backend engine block
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    networks:
+      - wealth-network
+    # PWM-NF-003: Check backend availability endpoint to enforce 99.5% uptime SLA
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: always
+
+  # PRJ-SR-001: Enforce Secure Gateway Proxy
+  gateway-proxy:
+    image: nginx:alpine
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - wealth-network
+    restart: always
+
+networks:
+  wealth-network:
+    driver: bridge
