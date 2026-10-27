@@ -1,107 +1,103 @@
-﻿import mongoose from "mongoose";
-import Asset from "../models/assetModel.js";
+// Data layer fallback simulating data schemas from models
+let mockAssetValuations = {
+  stock: { currentPrice: 150.00, lastUpdated: new Date(), isStale: false },
+  gold: { currentPrice: 2500.00, lastUpdated: new Date(), isStale: false }
+};
 
-export const createAsset = async (req, res) => {
+let userAlertConfigs = []; // Stores threshold records
+const THROTTLE_DURATION_MS = 60 * 60 * 1000; // 1-hour anti-spam threshold constraint
+
+/**
+ * PWM-F-020 & PWM-F-021: Handle live asset price feeds
+ * PWM-F-024: Evaluate and attach the data status flag
+ */
+exports.getAssetPrices = async (req, res) => {
   try {
-    const { assetName, assetType, value, purchaseDate } = req.body;
-    if (!assetName || !assetType || value === undefined) {
-      return res.status(400).json({ success: false, message: "Missing required asset fields." });
+    const now = new Date();
+    
+    // Check if the server hasn't updated data within 1 minute
+    for (let key in mockAssetValuations) {
+      const timeDifference = now - mockAssetValuations[key].lastUpdated;
+      if (timeDifference > 60000) {
+        mockAssetValuations[key].isStale = true; // Flag stale cache status
+      }
     }
 
-    const numericValue = Number(value);
-    if (isNaN(numericValue) || numericValue < 0) {
-      return res.status(400).json({ success: false, message: "Value must be a non-negative number." });
-    }
-
-    const asset = await Asset.create({
-      userId: req.user.id,
-      assetName,
-      assetType,
-      value: numericValue,
-      purchaseDate: purchaseDate || Date.now()
+    return res.status(200).json({
+      success: true,
+      data: mockAssetValuations
     });
-
-    res.status(201).json({ success: true, data: asset });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-export const getMyAssets = async (req, res) => {
+/**
+ * PWM-F-040: Store boundary notification options from users
+ */
+exports.configureAlert = async (req, res) => {
   try {
-    const assets = await Asset.find({ userId: req.user.id }).sort({ createdAt: -1 });
-    res.status(200).json({ success: true, count: assets.length, data: assets });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-export const updateAsset = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { assetName, assetType, value } = req.body;
-
-    if (value !== undefined && (isNaN(Number(value)) || Number(value) < 0)) {
-      return res.status(400).json({ success: false, message: "Asset value cannot be negative" });
+    const { userId, assetType, targetPrice, condition } = req.body;
+    
+    if (!targetPrice || targetPrice <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid target price parameter" });
     }
 
-    const asset = await Asset.findOneAndUpdate(
-      { _id: id, userId: req.user.id },
-      { $set: { assetName, assetType, value } },
-      { new: true, runValidators: true }
-    );
+    const newAlert = {
+      userId,
+      assetType,
+      targetPrice: parseFloat(targetPrice),
+      condition, // 'ABOVE' or 'BELOW'
+      lastNotifiedAt: null
+    };
 
-    if (!asset) {
-      return res.status(404).json({ success: false, message: "Asset not found or unauthorized" });
-    }
-
-    res.status(200).json({ success: true, data: asset });
+    userAlertConfigs.push(newAlert);
+    return res.status(201).json({ success: true, message: "Alert configuration saved successfully" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-export const deleteAsset = async (req, res) => {
+/**
+ * PWM-F-041 & PWM-F-042: Evaluate alert conditions and execute throttled warnings
+ */
+exports.processIncomingMarketData = async (req, res) => {
   try {
-    const { id } = req.params;
-    const asset = await Asset.findOneAndDelete({ _id: id, userId: req.user.id });
+    const { assetType, newPrice } = req.body;
+    const now = Date.now();
 
-    if (!asset) {
-      return res.status(404).json({ success: false, message: "Asset not found or unauthorized" });
+    // Update local cache records
+    if (mockAssetValuations[assetType]) {
+      mockAssetValuations[assetType].currentPrice = parseFloat(newPrice);
+      mockAssetValuations[assetType].lastUpdated = new Date();
+      mockAssetValuations[assetType].isStale = false;
     }
 
-    res.status(200).json({ success: true, message: "Asset removed successfully" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+    let notificationsTriggered = [];
 
-export const getDashboardSummary = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const startTime = Date.now();
+    // Evaluate stored triggers
+    userAlertConfigs.forEach(alert => {
+      if (alert.assetType === assetType) {
+        const isBreached = 
+          (alert.condition === 'ABOVE' && newPrice >= alert.targetPrice) ||
+          (alert.condition === 'BELOW' && newPrice <= alert.targetPrice);
 
-    const summary = await Asset.aggregate([
-      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
-      {
-        $group: {
-          _id: "$assetType",
-          totalValue: { $sum: "$value" },
-          count: { $sum: 1 }
+        if (isBreached) {
+          // PWM-F-042: Verify throttling rule constraint before dispatching
+          if (!alert.lastNotifiedAt || (now - alert.lastNotifiedAt > THROTTLE_DURATION_MS)) {
+            alert.lastNotifiedAt = now;
+            notificationsTriggered.push(`🚨 Alert breached for ${assetType}! Target value hit $${newPrice}`);
+          }
         }
       }
-    ]);
+    });
 
-    const totalNetWorth = summary.reduce((acc, curr) => acc + curr.totalValue, 0);
-    const executionTimeMs = Date.now() - startTime;
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      executionTimeMs,
-      totalNetWorth,
-      allocation: summary
+      message: "Market processing sequence executed successfully",
+      alerts: notificationsTriggered
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
