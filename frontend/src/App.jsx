@@ -11,7 +11,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import PlaceholderPage from './pages/PlaceholderPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import { matchPath, useHashLocation } from './lib/router.js';
-
+import ReportsPage from './pages/ReportsPage.jsx';
 const ROUTES = [
   { path: '/', title: 'Dashboard', nav: 'Dashboard', render: () => <Dashboard /> },
   { path: '/assets', title: 'Assets', nav: 'Assets', render: () => <AssetsPage /> },
@@ -27,7 +27,7 @@ const ROUTES = [
     nav: 'Assets',
     render: ({ params }) => <HistoryPage assetId={params.id} />,
   },
-  { path: '/reports', title: 'Reports', nav: 'Reports', render: () => <PlaceholderPage title="Reports" /> },
+  { path: '/reports', title: 'Reports', nav: 'Reports', render: () => <ReportsPage /> },
   { path: '/settings', title: 'Settings', nav: 'Settings', render: () => <PlaceholderPage title="Settings" /> },
   { path: '/login', title: 'Log in', layout: 'auth', render: () => <LoginPage /> },
   { path: '/forgot-password', title: 'Reset your password', layout: 'auth', render: () => <ForgotPasswordPage /> },
