@@ -1,10 +1,8 @@
-// =========================================================
-// PWM-NF-003: Automated 99.5% Service Availability Checkpoint
-// =========================================================
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString()
-  });
-});
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+// ... (Keep your existing route handlers like app.get here) ...
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
