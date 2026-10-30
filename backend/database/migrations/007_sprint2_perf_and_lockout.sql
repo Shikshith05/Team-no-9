@@ -1,4 +1,16 @@
-﻿-- 1. Ensure users table has lockout columns (Story #31 & PRJ-SR-005)
+﻿-- 1. Ensure users table exists with lockout columns (Story #1, #2, #31 & PRJ-SR-005)
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    failed_login_attempts INT DEFAULT 0,
+    lock_until TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Safely add columns if users table pre-existed from an older schema
 ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INT DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS lock_until TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 
@@ -15,7 +27,7 @@ CREATE TABLE IF NOT EXISTS assets (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Ensure deleted_at exists if assets table was already created
+-- Safely add deleted_at if assets pre-existed
 ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 
 -- 3. Token Blacklist Table for Logout / Revocation (Pure PostgreSQL)
