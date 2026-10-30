@@ -1,103 +1,84 @@
-// Data layer fallback simulating data schemas from models
-let mockAssetValuations = {
-  stock: { currentPrice: 150.00, lastUpdated: new Date(), isStale: false },
-  gold: { currentPrice: 2500.00, lastUpdated: new Date(), isStale: false }
-};
+﻿const pool = require("../config/db");
 
-let userAlertConfigs = []; // Stores threshold records
-const THROTTLE_DURATION_MS = 60 * 60 * 1000; // 1-hour anti-spam threshold constraint
-
-/**
- * PWM-F-020 & PWM-F-021: Handle live asset price feeds
- * PWM-F-024: Evaluate and attach the data status flag
- */
-exports.getAssetPrices = async (req, res) => {
+// Story #8: Edit Asset (PWM-F-014)
+exports.updateAsset = async (req, res) => {
   try {
-    const now = new Date();
-    
-    // Check if the server hasn't updated data within 1 minute
-    for (let key in mockAssetValuations) {
-      const timeDifference = now - mockAssetValuations[key].lastUpdated;
-      if (timeDifference > 60000) {
-        mockAssetValuations[key].isStale = true; // Flag stale cache status
-      }
+    const { id } = req.params;
+    const { assetName, assetType, value } = req.body;
+    const userId = req.user ? req.user.id : req.body.userId;
+
+    if (value !== undefined && (isNaN(Number(value)) || Number(value) < 0)) {
+      return res.status(400).json({ success: false, message: "Asset value cannot be negative" });
     }
 
-    return res.status(200).json({
-      success: true,
-      data: mockAssetValuations
-    });
+    const query = `
+      UPDATE assets 
+      SET asset_name = COALESCE($1, asset_name),
+          asset_type = COALESCE($2, asset_type),
+          value = COALESCE($3, value),
+          updated_at = NOW()
+      WHERE id = $4 AND user_id = $5
+      RETURNING *;
+    `;
+    const result = await pool.query(query, [assetName, assetType, value, id, userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Asset not found or unauthorized" });
+    }
+
+    res.status(200).json({ success: true, data: result.rows[0] });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/**
- * PWM-F-040: Store boundary notification options from users
- */
-exports.configureAlert = async (req, res) => {
+// Story #8: Delete Asset (PWM-F-014)
+exports.deleteAsset = async (req, res) => {
   try {
-    const { userId, assetType, targetPrice, condition } = req.body;
-    
-    if (!targetPrice || targetPrice <= 0) {
-      return res.status(400).json({ success: false, message: "Invalid target price parameter" });
+    const { id } = req.params;
+    const userId = req.user ? req.user.id : req.query.userId;
+
+    const result = await pool.query(
+      "DELETE FROM assets WHERE id = $1 AND user_id = $2 RETURNING id;",
+      [id, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Asset not found or unauthorized" });
     }
 
-    const newAlert = {
-      userId,
-      assetType,
-      targetPrice: parseFloat(targetPrice),
-      condition, // 'ABOVE' or 'BELOW'
-      lastNotifiedAt: null
-    };
-
-    userAlertConfigs.push(newAlert);
-    return res.status(201).json({ success: true, message: "Alert configuration saved successfully" });
+    res.status(200).json({ success: true, message: "Asset removed successfully" });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/**
- * PWM-F-041 & PWM-F-042: Evaluate alert conditions and execute throttled warnings
- */
-exports.processIncomingMarketData = async (req, res) => {
+// Story #22: Fast Dashboard Aggregation (PWM-NF-001)
+exports.getDashboardSummary = async (req, res) => {
   try {
-    const { assetType, newPrice } = req.body;
-    const now = Date.now();
+    const userId = req.user ? req.user.id : req.query.userId;
+    const startTime = Date.now();
 
-    // Update local cache records
-    if (mockAssetValuations[assetType]) {
-      mockAssetValuations[assetType].currentPrice = parseFloat(newPrice);
-      mockAssetValuations[assetType].lastUpdated = new Date();
-      mockAssetValuations[assetType].isStale = false;
-    }
+    const query = `
+      SELECT 
+        asset_type,
+        SUM(value) AS total_value,
+        COUNT(*) AS count
+      FROM assets
+      WHERE user_id = $1
+      GROUP BY asset_type;
+    `;
+    const result = await pool.query(query, [userId]);
+    const totalNetWorth = result.rows.reduce((sum, row) => sum + parseFloat(row.total_value || 0), 0);
+    const executionTimeMs = Date.now() - startTime;
 
-    let notificationsTriggered = [];
-
-    // Evaluate stored triggers
-    userAlertConfigs.forEach(alert => {
-      if (alert.assetType === assetType) {
-        const isBreached = 
-          (alert.condition === 'ABOVE' && newPrice >= alert.targetPrice) ||
-          (alert.condition === 'BELOW' && newPrice <= alert.targetPrice);
-
-        if (isBreached) {
-          // PWM-F-042: Verify throttling rule constraint before dispatching
-          if (!alert.lastNotifiedAt || (now - alert.lastNotifiedAt > THROTTLE_DURATION_MS)) {
-            alert.lastNotifiedAt = now;
-            notificationsTriggered.push(`🚨 Alert breached for ${assetType}! Target value hit $${newPrice}`);
-          }
-        }
-      }
-    });
-
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
-      message: "Market processing sequence executed successfully",
-      alerts: notificationsTriggered
+      executionTimeMs,
+      totalNetWorth,
+      allocation: result.rows
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
