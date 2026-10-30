@@ -1,9 +1,10 @@
 ﻿const pool = require("../config/db");
 
+// Story #9: Create Asset (Strictly req.user.id)
 exports.createAsset = async (req, res) => {
   try {
     const { assetName, assetType, value, purchaseDate } = req.body;
-    const userId = req.user ? req.user.id : req.body.userId;
+    const userId = req.user.id; // Strictly from authenticated token
 
     if (!assetName || !assetType || value === undefined) {
       return res.status(400).json({ success: false, message: "Missing required asset fields." });
@@ -27,11 +28,12 @@ exports.createAsset = async (req, res) => {
   }
 };
 
+// Story #8: Update Asset (Strictly req.user.id & active assets)
 exports.updateAsset = async (req, res) => {
   try {
     const { id } = req.params;
     const { assetName, assetType, value } = req.body;
-    const userId = req.user ? req.user.id : req.body.userId;
+    const userId = req.user.id;
 
     if (value !== undefined && (isNaN(Number(value)) || Number(value) < 0)) {
       return res.status(400).json({ success: false, message: "Asset value cannot be negative" });
@@ -43,7 +45,7 @@ exports.updateAsset = async (req, res) => {
           asset_type = COALESCE($2, asset_type),
           value = COALESCE($3, value),
           updated_at = NOW()
-      WHERE id = $4 AND user_id = $5
+      WHERE id = $4 AND user_id = $5 AND deleted_at IS NULL
       RETURNING *;
     `;
     const result = await pool.query(query, [assetName, assetType, value, id, userId]);
@@ -58,29 +60,34 @@ exports.updateAsset = async (req, res) => {
   }
 };
 
+// Story #8 & SAD: Soft Delete Asset (Sets deleted_at timestamp)
 exports.deleteAsset = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user ? req.user.id : req.query.userId;
+    const userId = req.user.id;
 
-    const result = await pool.query(
-      "DELETE FROM assets WHERE id = $1 AND user_id = $2 RETURNING id;",
-      [id, userId]
-    );
+    const query = `
+      UPDATE assets 
+      SET deleted_at = NOW(), updated_at = NOW() 
+      WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL 
+      RETURNING id;
+    `;
+    const result = await pool.query(query, [id, userId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: "Asset not found or unauthorized" });
     }
 
-    res.status(200).json({ success: true, message: "Asset removed successfully" });
+    res.status(200).json({ success: true, message: "Asset soft-deleted successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
+// Story #22: Aggregation for Active Assets Only
 exports.getDashboardSummary = async (req, res) => {
   try {
-    const userId = req.user ? req.user.id : req.query.userId;
+    const userId = req.user.id;
     const startTime = Date.now();
 
     const query = `
@@ -89,7 +96,7 @@ exports.getDashboardSummary = async (req, res) => {
         SUM(value) AS total_value,
         COUNT(*) AS count
       FROM assets
-      WHERE user_id = $1
+      WHERE user_id = $1 AND deleted_at IS NULL
       GROUP BY asset_type;
     `;
     const result = await pool.query(query, [userId]);

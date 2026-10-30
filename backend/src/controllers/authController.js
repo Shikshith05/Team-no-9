@@ -78,7 +78,7 @@ exports.login = async (req, res) => {
     );
 
     if (!process.env.JWT_SECRET) {
-      return res.status(500).json({ success: false, message: "Server misconfiguration: JWT_SECRET environment variable is missing" });
+      return res.status(500).json({ success: false, message: "Server misconfiguration: JWT_SECRET missing" });
     }
 
     const token = jwt.sign(
@@ -92,6 +92,21 @@ exports.login = async (req, res) => {
       token,
       user: { id: user.id, name: user.name, email: user.email }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.logout = async (req, res) => {
+  try {
+    const token = req.token;
+    if (token) {
+      await pool.query(
+        "INSERT INTO token_blacklist (token) VALUES ($1) ON CONFLICT (token) DO NOTHING",
+        [token]
+      );
+    }
+    res.status(200).json({ success: true, message: "Logged out successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

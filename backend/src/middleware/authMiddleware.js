@@ -1,28 +1,36 @@
-﻿import jwt from "jsonwebtoken";
-import TokenBlacklist from "../models/tokenBlacklistModel.js";
+﻿const jwt = require("jsonwebtoken");
+const pool = require("../config/db");
 
-const JWT_SECRET = process.env.JWT_SECRET || "wealth_mgmt_jwt_secret_key_2026";
-
-export const protect = async (req, res, next) => {
-  let token;
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-    token = req.headers.authorization.split(" ")[1];
-  }
-
-  if (!token) {
-    return res.status(401).json({ success: false, message: "Not authorized, token missing" });
-  }
-
+const authMiddleware = async (req, res, next) => {
   try {
-    const blacklisted = await TokenBlacklist.findOne({ token });
-    if (blacklisted) {
-      return res.status(401).json({ success: false, message: "Token revoked. Please login again." });
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ success: false, message: "Authorization token required" });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
+    const token = authHeader.split(" ")[1];
+
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ success: false, message: "Server misconfiguration: JWT_SECRET missing" });
+    }
+
+    // Verify token is not in PostgreSQL blacklist
+    const blacklistCheck = await pool.query(
+      "SELECT id FROM token_blacklist WHERE token = $1",
+      [token]
+    );
+
+    if (blacklistCheck.rows.length > 0) {
+      return res.status(401).json({ success: false, message: "Token has been revoked. Please log in again." });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // { id, email }
+    req.token = token;
     next();
   } catch (error) {
-    return res.status(401).json({ success: false, message: "Session expired or invalid token" });
+    return res.status(401).json({ success: false, message: "Invalid or expired token" });
   }
 };
+
+module.exports = authMiddleware;
