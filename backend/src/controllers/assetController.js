@@ -1,6 +1,32 @@
 ﻿const pool = require("../config/db");
 
-// Story #8: Edit Asset (PWM-F-014)
+exports.createAsset = async (req, res) => {
+  try {
+    const { assetName, assetType, value, purchaseDate } = req.body;
+    const userId = req.user ? req.user.id : req.body.userId;
+
+    if (!assetName || !assetType || value === undefined) {
+      return res.status(400).json({ success: false, message: "Missing required asset fields." });
+    }
+
+    const numericValue = Number(value);
+    if (isNaN(numericValue) || numericValue < 0) {
+      return res.status(400).json({ success: false, message: "Value must be a non-negative number." });
+    }
+
+    const query = `
+      INSERT INTO assets (user_id, asset_name, asset_type, value, purchase_date)
+      VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_DATE))
+      RETURNING *;
+    `;
+    const result = await pool.query(query, [userId, assetName, assetType, numericValue, purchaseDate]);
+
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 exports.updateAsset = async (req, res) => {
   try {
     const { id } = req.params;
@@ -32,7 +58,6 @@ exports.updateAsset = async (req, res) => {
   }
 };
 
-// Story #8: Delete Asset (PWM-F-014)
 exports.deleteAsset = async (req, res) => {
   try {
     const { id } = req.params;
@@ -53,7 +78,6 @@ exports.deleteAsset = async (req, res) => {
   }
 };
 
-// Story #22: Fast Dashboard Aggregation (PWM-NF-001)
 exports.getDashboardSummary = async (req, res) => {
   try {
     const userId = req.user ? req.user.id : req.query.userId;
