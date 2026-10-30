@@ -1,58 +1,53 @@
 const pool = require("../config/db");
 const PDFDocument = require("pdfkit");
 
-async function getReportData() {
-  const [realEstate, gold, stocks, cash, valuations] = await Promise.all([
-    pool.query(`
-      SELECT id, property_name AS name, location AS details,
-             purchase_value, current_estimated_value AS current_value,
-             purchase_date, created_at
-      FROM real_estate_assets ORDER BY id
-    `),
-    pool.query(`
-      SELECT id, asset_name AS name,
-             gold_type || ' / ' || purity AS details,
-             purchase_value, current_estimated_value AS current_value,
-             purchase_date, weight_grams AS quantity, created_at
-      FROM gold_assets ORDER BY id
-    `),
-    pool.query(`
-      SELECT id, ticker_symbol AS name, quantity,
-             average_buy_price AS unit_price, created_at
-      FROM stock_assets ORDER BY id
-    `),
-    pool.query(`
-      SELECT id, account_label AS name,
-             current_balance AS current_value, created_at
-      FROM cash_bank_assets ORDER BY id
-    `),
-    pool.query(`
-      SELECT asset_type, asset_id, value, unit_price, source, valued_at
-      FROM valuations ORDER BY valued_at DESC
-    `)
+async function getReportData(userId) {
+  if (!userId) {
+    throw new Error("Authenticated user ID is missing.");
+  }
+
+  const [assets, valuations] = await Promise.all([
+    pool.query(
+      `SELECT
+          id,
+          asset_type,
+          asset_name AS name,
+          value AS current_value,
+          purchase_date,
+          created_at
+       FROM assets
+       WHERE user_id = $1
+         AND deleted_at IS NULL
+       ORDER BY id`,
+      [userId]
+    ),
+
+    pool.query(
+      `SELECT
+          v.asset_type,
+          v.asset_id,
+          v.value,
+          v.unit_price,
+          v.source,
+          v.valued_at
+       FROM valuations v
+       INNER JOIN assets a ON a.id = v.asset_id
+       WHERE a.user_id = $1
+         AND a.deleted_at IS NULL
+       ORDER BY v.valued_at DESC`,
+      [userId]
+    )
   ]);
 
   return {
-    assets: [
-      ...realEstate.rows.map(r => ({
-        type: "REAL_ESTATE", ...r
-      })),
-      ...gold.rows.map(r => ({
-        type: "GOLD", ...r
-      })),
-      ...stocks.rows.map(r => ({
-        type: "STOCK", ...r
-      })),
-      ...cash.rows.map(r => ({
-        type: "CASH_BANK", ...r
-      }))
-    ],
+    assets: assets.rows,
     valuations: valuations.rows
   };
 }
 
 function csvCell(value) {
   if (value == null) return "";
+
   const text = String(value);
   const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
 
@@ -63,22 +58,48 @@ function csvCell(value) {
 
 exports.exportCsv = async (req, res) => {
   try {
-    const { assets, valuations } = await getReportData();
+    const { assets, valuations } = await getReportData(req.user.id);
+
     const header = [
-      "record_type", "asset_type", "asset_id", "name", "details",
-      "purchase_value", "purchase_date", "quantity", "unit_price",
-      "current_value", "valuation_value", "source", "valued_at"
+      "record_type",
+      "asset_type",
+      "asset_id",
+      "name",
+      "current_value",
+      "purchase_date",
+      "created_at",
+      "valuation_value",
+      "unit_price",
+      "source",
+      "valued_at"
     ];
 
     const assetRows = assets.map(a => [
-      "ASSET", a.type, a.id, a.name, a.details,
-      a.purchase_value, a.purchase_date, a.quantity, a.unit_price,
-      a.current_value, "", "", ""
+      "ASSET",
+      a.asset_type,
+      a.id,
+      a.name,
+      a.current_value,
+      a.purchase_date,
+      a.created_at,
+      "",
+      "",
+      "",
+      ""
     ]);
 
     const valuationRows = valuations.map(v => [
-      "VALUATION", v.asset_type, v.asset_id, "", "", "", "", "",
-      v.unit_price, "", v.value, v.source, v.valued_at
+      "VALUATION",
+      v.asset_type,
+      v.asset_id,
+      "",
+      "",
+      "",
+      "",
+      v.value,
+      v.unit_price,
+      v.source,
+      v.valued_at
     ]);
 
     const csv = [header, ...assetRows, ...valuationRows]
@@ -91,9 +112,11 @@ exports.exportCsv = async (req, res) => {
       'attachment; filename="personal-wealth-report.csv"'
     );
     res.setHeader("Cache-Control", "no-store");
+
     return res.status(200).send("\uFEFF" + csv);
   } catch (error) {
     console.error("CSV export failed:", error.message);
+
     return res.status(500).json({
       success: false,
       message: "Unable to generate CSV report."
@@ -103,7 +126,7 @@ exports.exportCsv = async (req, res) => {
 
 exports.exportPdf = async (req, res) => {
   try {
-    const { assets, valuations } = await getReportData();
+    const { assets, valuations } = await getReportData(req.user.id);
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
@@ -117,6 +140,7 @@ exports.exportPdf = async (req, res) => {
 
     doc.fontSize(20).text("Personal Wealth Management Report");
     doc.moveDown();
+
     doc.fontSize(10).text(`Generated: ${new Date().toISOString()}`);
     doc.moveDown();
 
@@ -126,14 +150,11 @@ exports.exportPdf = async (req, res) => {
 
     for (const asset of assets) {
       doc.text(
-        `${asset.type} | ID: ${asset.id} | ${asset.name || ""}`
+        `${asset.asset_type} | ID: ${asset.id} | ${asset.name}`
       );
-      if (asset.details) doc.text(`Details: ${asset.details}`);
-      if (asset.current_value != null) {
-        doc.text(`Current value: INR ${asset.current_value}`);
-      }
-      if (asset.quantity != null) {
-        doc.text(`Quantity/weight: ${asset.quantity}`);
+      doc.text(`Current value: INR ${asset.current_value}`);
+      if (asset.purchase_date) {
+        doc.text(`Purchase date: ${asset.purchase_date}`);
       }
       doc.moveDown(0.4);
     }
@@ -156,12 +177,14 @@ exports.exportPdf = async (req, res) => {
     doc.end();
   } catch (error) {
     console.error("PDF export failed:", error.message);
+
     if (!res.headersSent) {
       return res.status(500).json({
         success: false,
         message: "Unable to generate PDF report."
       });
     }
+
     res.destroy(error);
   }
 };
