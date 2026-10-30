@@ -1,14 +1,17 @@
-
-require('dotenv').config();
+﻿require('dotenv').config();
 
 const express = require('express');
 const app = express();
 
-const {
-  startRefreshScheduler
-} = require('./services/refreshScheduler');
+const authRoutes = require('./routes/authRoutes');
+const assetRoutes = require('./routes/assetRoutes');
+const { startRefreshScheduler } = require('./services/refreshScheduler');
 
 app.use(express.json());
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/assets', assetRoutes);
 
 // PWM-NF-003: Backend availability health check
 app.get('/health', (req, res) => {
