@@ -1,3 +1,4 @@
+
 const pool = require("../config/db");
 const PDFDocument = require("pdfkit");
 
@@ -6,43 +7,28 @@ async function getReportData(userId) {
     throw new Error("Authenticated user ID is missing.");
   }
 
-  const [assets, valuations] = await Promise.all([
-    pool.query(
-      `SELECT
-          id,
-          asset_type,
-          asset_name AS name,
-          value AS current_value,
-          purchase_date,
-          created_at
-       FROM assets
-       WHERE user_id = $1
-         AND deleted_at IS NULL
-       ORDER BY id`,
-      [userId]
-    ),
+  // Export only active assets owned by the authenticated user.
+  // Valuation history is intentionally omitted until valuations.asset_id
+  // references the unified assets table safely.
+  const result = await pool.query(
+    `SELECT
+        id,
+        asset_type,
+        asset_name AS name,
+        value AS current_value,
+        TO_CHAR(purchase_date, 'YYYY-MM-DD') AS purchase_date,
+        TO_CHAR(
+          created_at AT TIME ZONE 'UTC',
+          'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+        ) AS created_at
+     FROM assets
+     WHERE user_id = $1
+       AND deleted_at IS NULL
+     ORDER BY id`,
+    [userId]
+  );
 
-    pool.query(
-      `SELECT
-          v.asset_type,
-          v.asset_id,
-          v.value,
-          v.unit_price,
-          v.source,
-          v.valued_at
-       FROM valuations v
-       INNER JOIN assets a ON a.id = v.asset_id
-       WHERE a.user_id = $1
-         AND a.deleted_at IS NULL
-       ORDER BY v.valued_at DESC`,
-      [userId]
-    )
-  ]);
-
-  return {
-    assets: assets.rows,
-    valuations: valuations.rows
-  };
+  return result.rows;
 }
 
 function csvCell(value) {
@@ -58,7 +44,7 @@ function csvCell(value) {
 
 exports.exportCsv = async (req, res) => {
   try {
-    const { assets, valuations } = await getReportData(req.user.id);
+    const assets = await getReportData(req.user.id);
 
     const header = [
       "record_type",
@@ -67,42 +53,20 @@ exports.exportCsv = async (req, res) => {
       "name",
       "current_value",
       "purchase_date",
-      "created_at",
-      "valuation_value",
-      "unit_price",
-      "source",
-      "valued_at"
+      "created_at"
     ];
 
-    const assetRows = assets.map(a => [
+    const rows = assets.map(asset => [
       "ASSET",
-      a.asset_type,
-      a.id,
-      a.name,
-      a.current_value,
-      a.purchase_date,
-      a.created_at,
-      "",
-      "",
-      "",
-      ""
+      asset.asset_type,
+      asset.id,
+      asset.name,
+      asset.current_value,
+      asset.purchase_date,
+      asset.created_at
     ]);
 
-    const valuationRows = valuations.map(v => [
-      "VALUATION",
-      v.asset_type,
-      v.asset_id,
-      "",
-      "",
-      "",
-      "",
-      v.value,
-      v.unit_price,
-      v.source,
-      v.valued_at
-    ]);
-
-    const csv = [header, ...assetRows, ...valuationRows]
+    const csv = [header, ...rows]
       .map(row => row.map(csvCell).join(","))
       .join("\r\n");
 
@@ -126,7 +90,7 @@ exports.exportCsv = async (req, res) => {
 
 exports.exportPdf = async (req, res) => {
   try {
-    const { assets, valuations } = await getReportData(req.user.id);
+    const assets = await getReportData(req.user.id);
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
@@ -140,7 +104,6 @@ exports.exportPdf = async (req, res) => {
 
     doc.fontSize(20).text("Personal Wealth Management Report");
     doc.moveDown();
-
     doc.fontSize(10).text(`Generated: ${new Date().toISOString()}`);
     doc.moveDown();
 
@@ -150,29 +113,19 @@ exports.exportPdf = async (req, res) => {
 
     for (const asset of assets) {
       doc.text(
-        `${asset.asset_type} | ID: ${asset.id} | ${asset.name}`
+        `${asset.asset_type} | ID: ${asset.id} | ${asset.name || ""}`
       );
       doc.text(`Current value: INR ${asset.current_value}`);
-      if (asset.purchase_date) {
-        doc.text(`Purchase date: ${asset.purchase_date}`);
-      }
+      doc.text(`Purchase date: ${asset.purchase_date}`);
+      doc.text(`Created at: ${asset.created_at}`);
       doc.moveDown(0.4);
     }
 
-    doc.addPage();
-    doc.fontSize(15).text(`Valuation History (${valuations.length})`);
-    doc.moveDown(0.5);
-    doc.fontSize(9);
-
-    for (const v of valuations) {
-      doc.text(
-        `${v.asset_type} | Asset ID: ${v.asset_id} | ` +
-        `Value: INR ${v.value} | Source: ${v.source} | ` +
-        `Date: ${new Date(v.valued_at).toISOString()}`,
-        { width: 510 }
-      );
-      doc.moveDown(0.4);
-    }
+    doc.moveDown();
+    doc.fontSize(9).text(
+      "Valuation history is temporarily omitted pending correction " +
+      "of the asset ownership relationship."
+    );
 
     doc.end();
   } catch (error) {
