@@ -1,43 +1,68 @@
-﻿require('dotenv').config();
+const express = require("express");
+const cors = require("cors");
+const path = require("path");
 
-const express = require('express');
+require("dotenv").config({
+  path: path.resolve(__dirname, "../../.env")
+});
+
 const app = express();
+const PORT = Number(process.env.PORT || 5000);
 
-const authRoutes = require('./routes/authRoutes');
-const assetRoutes = require('./routes/assetRoutes');
-const { startRefreshScheduler } = require('./services/refreshScheduler');
+const authRoutes = require("./routes/authRoutes");
+const assetRoutes = require("./routes/assetRoutes");
+const reportRoutes = require("./routes/reportRoutes");
+const { startRefreshScheduler } = require("./services/refreshScheduler");
+
+app.use(cors({
+  origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
+  credentials: true
+}));
 
 app.use(express.json());
 
 // API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/assets', assetRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/assets", assetRoutes);
+app.use("/api/reports", reportRoutes);
 
-// PWM-NF-003: Backend availability health check
-app.get('/health', (req, res) => {
+// Health endpoint
+app.get("/health", (req, res) => {
   res.status(200).json({
     success: true,
-    status: 'healthy',
+    status: "healthy",
+    uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });
 });
 
-const PORT = process.env.PORT || 5000;
+// Central error handler
+app.use((err, req, res, next) => {
+  console.error(err);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  if (res.headersSent) return next(err);
 
-  // PWM-F-020 and PWM-F-021: Automatic market price refresh
-  if (
-    process.env.STOCK_PRICE_API_URL &&
-    process.env.GOLD_PRICE_API_URL
-  ) {
-    startRefreshScheduler();
-  } else {
-    console.log(
-      'Market refresh scheduler waiting for API configuration.'
-    );
-  }
+  res.status(500).json({
+    success: false,
+    message: "Internal server error."
+  });
 });
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Backend listening on port ${PORT}`);
+
+    if (
+      process.env.STOCK_PRICE_API_URL &&
+      process.env.GOLD_PRICE_API_URL
+    ) {
+      startRefreshScheduler();
+    } else {
+      console.log(
+        "Market refresh scheduler waiting for API configuration."
+      );
+    }
+  });
+}
 
 module.exports = app;
