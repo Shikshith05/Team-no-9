@@ -1,6 +1,7 @@
 ﻿const pool = require("../config/db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { validateRegistration } = require("../utils/validation");
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_TIME_MS = 15 * 60 * 1000;
@@ -12,10 +13,16 @@ const normalizeEmail = (email) => (typeof email === "string" ? email.trim().toLo
 
 exports.register = async (req, res) => {
   try {
-    const { name, password } = req.body;
+    const { password } = req.body;
+    const name = typeof req.body.name === "string" ? req.body.name.trim() : req.body.name;
     const email = normalizeEmail(req.body.email);
-    if (!name || !email || !password) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
+
+    // B4 (#57): email format and the SAD password policy, all field errors at once.
+    const fields = validateRegistration({ name, email, password });
+    if (fields.length > 0) {
+      return res.status(400).json({
+        error: { code: "VALIDATION_ERROR", message: "Please correct the highlighted fields.", fields }
+      });
     }
 
     const userExists = await pool.query("SELECT id FROM users WHERE LOWER(email) = $1", [email]);
