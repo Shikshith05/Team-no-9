@@ -2,9 +2,9 @@ name: Repository CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/bug-bash]
   pull_request:
-    branches: [main]
+    branches: [main, fix/bug-bash]
   workflow_dispatch:
 
 permissions:
@@ -35,6 +35,29 @@ jobs:
       run:
         working-directory: backend
 
+    # Throwaway database for the API tests (credentials only exist inside
+    # this CI job). The tests drop and recreate POSTGRES_DB on every run.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pwm_ci_test
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -54,6 +77,9 @@ jobs:
 
       - name: Check database configuration syntax
         run: node --check src/config/db.js
+
+      - name: Run backend API tests
+        run: npm test
 
   build-frontend:
     name: Build frontend
@@ -76,6 +102,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Run frontend unit tests
+        run: npm test
 
       - name: Build React application
         run: npm run build
