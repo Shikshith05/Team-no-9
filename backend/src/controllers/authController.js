@@ -5,14 +5,20 @@ const jwt = require("jsonwebtoken");
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_TIME_MS = 15 * 60 * 1000;
 
+// B3 (#56): "User@Example.com " and "user@example.com" are the same account.
+// Emails are trimmed and lowercased before they are stored or looked up;
+// migration 008 adds a unique index on LOWER(email) as a database backstop.
+const normalizeEmail = (email) => (typeof email === "string" ? email.trim().toLowerCase() : "");
+
 exports.register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, password } = req.body;
+    const email = normalizeEmail(req.body.email);
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
-    const userExists = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
+    const userExists = await pool.query("SELECT id FROM users WHERE LOWER(email) = $1", [email]);
     if (userExists.rows.length > 0) {
       return res.status(400).json({ success: false, message: "Email is already registered" });
     }
@@ -27,14 +33,19 @@ exports.register = async (req, res) => {
 
     res.status(201).json({ success: true, message: "User registered successfully", user: result.rows[0] });
   } catch (error) {
+    // Two registrations racing for the same email: the unique index wins.
+    if (error.code === "23505") {
+      return res.status(400).json({ success: false, message: "Email is already registered" });
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const userResult = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    const { password } = req.body;
+    const email = normalizeEmail(req.body.email);
+    const userResult = await pool.query("SELECT * FROM users WHERE LOWER(email) = $1", [email]);
 
     if (userResult.rows.length === 0) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
