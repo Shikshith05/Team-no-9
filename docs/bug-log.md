@@ -99,7 +99,57 @@ Listed in #52 as Rushikesh's, but no GitHub issues exist, so title, steps to rep
 - **Fix:** Vitest + Supertest; a helper that drops and recreates the test database (`POSTGRES_DB` must end in `_test`), applies the migrations in filename order (stripping the BOM in 007) and truncates all tables before each test; JWT_SECRET is generated per run. CI gets a `postgres:16` service and runs `npm test` in both the backend and frontend jobs, also for `fix/bug-bash`.
 - **Tests:** baseline suites `auth`, `assets`, `reports` (18 tests), then each fix added its own.
 
+### New findings during regression (no issue yet)
+- **Asset create/update return the purchase date shifted by a day.** `POST /api/assets` with `"purchaseDate":"2021-03-15"` answers `"purchase_date":"2021-03-14T18:30:00.000Z"`: node-pg turns a DATE into midnight in the server's time zone (IST), which is the previous day in UTC. The stored value is correct, and the new `GET /api/assets` endpoints return `2021-03-15`. Fix: format the date in SQL (as the report and list queries do) or set a pg type parser for DATE. Needs an issue and an owner.
+- **Backend dependency advisory.** `npm audit --omit=dev` reports 1 high-severity advisory in `body-parser` 2.0.0–2.3.0 (pulled in by Express, already in the lockfile on `main`). `npm audit fix` should resolve it; needs an issue.
+- **Lint warning in `frontend/src/valuationWorker.js`** (unused catch parameter, line 35). Not an error, so lint passes; belongs to the market refresh work (Rushikesh).
+
 ### B15 – Missing Docker and Nginx files (#62)
 - **Steps to reproduce:** `docker compose build`. `docker-compose.yml` builds `frontend/Dockerfile` and `backend/Dockerfile` and mounts `./nginx.conf` and `./certs`; none of these exist in the repository.
 - **Root cause:** compose file was added without the files it references.
 - **Fix / tests:** pending.
+
+## Regression testing
+
+Run on 2026-11-01 on `fix/bug-bash` (after the B14, B3, B4, B6 and B5 commits), Windows 11, Node 22.19.0, PostgreSQL 16.15 (WSL Ubuntu 22.04).
+The teammates' fixes (B1, B2, B7, B7b, B11, B13, B15) and Rushikesh's untracked bugs are not merged yet, so the final regression in #58 must be repeated after their PRs land in `fix/bug-bash`.
+
+### Automated suites
+
+| Suite | Command | Result |
+|---|---|---|
+| Backend API (Vitest + Supertest, real PostgreSQL) | `cd backend && npm ci && npm test` | **76 passed** in 7 files (before this branch: no tests; `npm test` exited 1) |
+| Frontend unit (Vitest) | `cd frontend && npm ci && npm test` | **48 passed** in 4 files (unchanged) |
+| Frontend lint (oxlint) | `npm run lint` | pass, 0 errors, 1 warning (see "New findings") |
+| Frontend build (Vite) | `npm run build` | pass |
+
+Backend test files: `auth` (9), `assets` (7), `reports` (3), `emailNormalization` (8), `registrationValidation` (18), `errorFormat` (11), `assetEndpoints` (20).
+
+The backend tests need a PostgreSQL user that can create databases. Configuration comes only from the environment, for example:
+
+```
+DB_HOST=127.0.0.1 DB_PORT=5432 POSTGRES_USER=<user> POSTGRES_PASSWORD=<password> POSTGRES_DB=pwm_app_test npm test
+```
+
+`POSTGRES_DB` must end in `_test`: the suite drops and recreates it, applies `backend/database/migrations/*.sql` in order and drops it again at the end. In CI the same suite runs against a `postgres:16` service container.
+
+### Manual smoke test
+
+Real server (`node src/app.js`, port 5055) against a freshly migrated database (8 migrations), driven with curl:
+
+| Step | Request | Result |
+|---|---|---|
+| Health | `GET /health` | 200 |
+| Register | `POST /api/auth/register` with `" Smoke.Tester@Example.com "` | 201, stored as `smoke.tester@example.com` |
+| Login | `POST /api/auth/login` with `SMOKE.TESTER@example.com` | 200, JWT returned |
+| Create asset | `POST /api/assets` (REAL_ESTATE, 8200000) | 201 (purchase date shifted, see "New findings") |
+| List | `GET /api/assets?type=REAL_ESTATE` | 200, `{items:[...], page:1, limit:50, total:1}` |
+| Revalue | `PUT /api/assets/1/valuation` `{"value":"8500000.00"}` | 200, `currentValue` 8500000.00 |
+| Export CSV | `GET /api/reports/export/csv` | 200 `text/csv`, header + 1 asset row with the new value |
+| Export without token | `GET /api/reports/export/csv` | 401 `{"error":{"code":"UNAUTHORIZED",...}}` |
+
+The smoke database was dropped afterwards.
+
+### CI
+
+`.github/workflows/main.yml` now runs the backend tests (with a `postgres:16` service) and the frontend unit tests on pushes and pull requests to `main` and `fix/bug-bash`. CI results for this branch are visible once it is pushed.
