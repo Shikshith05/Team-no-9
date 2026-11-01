@@ -23,6 +23,8 @@ const unauthorized = (message = "Authentication required.") => new AppError(401,
 const accountLocked = (message) => new AppError(423, "ACCOUNT_LOCKED", message);
 const notFound = (message = "Not found.") => new AppError(404, "NOT_FOUND", message);
 const conflict = (message, fields = []) => new AppError(409, "CONFLICT", message, fields);
+// Well-formed but refused by a business rule (SAD 4.3.4), e.g. MARKET_VALUED.
+const unprocessable = (code, message) => new AppError(422, code, message);
 
 function errorBody(code, message, fields = []) {
   return { error: { code, message, fields } };
@@ -62,6 +64,7 @@ module.exports = {
   accountLocked,
   notFound,
   conflict,
+  unprocessable,
   errorBody,
   errorHandler,
   apiNotFound

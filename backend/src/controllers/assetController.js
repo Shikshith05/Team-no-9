@@ -1,5 +1,5 @@
 ﻿const pool = require("../config/db");
-const { notFound, validationError } = require("../utils/errors");
+const { notFound, unprocessable, validationError } = require("../utils/errors");
 
 // Errors are thrown and turned into the SAD error format by errorHandler
 // (src/utils/errors.js). Input is validated here so that bad requests get
@@ -162,5 +162,139 @@ exports.getDashboardSummary = async (req, res) => {
   });
 };
 
-module.exports.parseAssetId = parseAssetId;
-module.exports.checkValue = checkValue;
+// ---------------------------------------------------------------------------
+// B5 (#54): read and manual-valuation endpoints, matching the contract in
+// frontend/src/api/assets.js (field names, pagination, decimal strings).
+//
+// The unified `assets` table has no location or purchase value, so those are
+// null; valuedAt is the row's updated_at (when the value last changed).
+// assetType is returned upper case (REAL_ESTATE, as the frontend expects) and
+// the ?type= filter ignores case, because existing rows use both spellings.
+// ---------------------------------------------------------------------------
+
+const DEFAULT_PAGE_SIZE = 50; // SAD 4.3.1: page/limit default 1 and 50, max 200
+const MAX_PAGE_SIZE = 200;
+const MAX_MANUAL_VALUE = "10000000000.00"; // ₹1,000 crore, as in the frontend contract
+const MARKET_VALUED_TYPES = new Set(["STOCK", "GOLD"]); // refreshed from price feeds
+
+const ASSET_COLUMNS = `
+  id,
+  UPPER(asset_type) AS "assetType",
+  asset_name AS name,
+  NULL::TEXT AS location,
+  NULL::TEXT AS "purchaseValue",
+  TO_CHAR(purchase_date, 'YYYY-MM-DD') AS "purchaseDate",
+  value::TEXT AS "currentValue",
+  TO_CHAR(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS "valuedAt"
+`;
+
+function parsePositiveInt(fields, field, raw, fallback, max) {
+  if (raw === undefined) return fallback;
+  const text = String(raw);
+  if (!/^\d+$/.test(text) || Number(text) < 1) {
+    fields.push({ field, message: `${field} must be a positive whole number.` });
+    return fallback;
+  }
+  if (max && Number(text) > max) {
+    fields.push({ field, message: `${field} must be at most ${max}.` });
+    return fallback;
+  }
+  return Number(text);
+}
+
+// GET /api/assets?type=&page=&limit=  -> { items, page, limit, total }
+exports.listAssets = async (req, res) => {
+  const userId = req.user.id;
+  const fields = [];
+  const page = parsePositiveInt(fields, "page", req.query.page, 1);
+  const limit = parsePositiveInt(fields, "limit", req.query.limit, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+  const type = req.query.type;
+  if (type !== undefined && (typeof type !== "string" || type.trim() === "" || type.length > 100)) {
+    fields.push({ field: "type", message: "type must be a non-empty asset type." });
+  }
+  if (fields.length > 0) throw validationError(fields);
+
+  const filters = ["user_id = $1", "deleted_at IS NULL"];
+  const params = [userId];
+  if (type !== undefined) {
+    params.push(type.trim());
+    filters.push(`UPPER(asset_type) = UPPER($${params.length})`);
+  }
+  const where = filters.join(" AND ");
+
+  const total = await pool.query(`SELECT COUNT(*)::INT AS total FROM assets WHERE ${where}`, params);
+  const items = await pool.query(
+    `SELECT ${ASSET_COLUMNS} FROM assets WHERE ${where}
+     ORDER BY id
+     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, limit, (page - 1) * limit]
+  );
+
+  res.status(200).json({ items: items.rows, page, limit, total: total.rows[0].total });
+};
+
+// GET /api/assets/:id -> one asset. Another user's asset is 404, like a
+// missing one, so the response never confirms that the id exists.
+exports.getAsset = async (req, res) => {
+  const id = parseAssetId(req.params.id);
+  const result = await pool.query(
+    `SELECT ${ASSET_COLUMNS} FROM assets WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+    [id, req.user.id]
+  );
+  if (result.rows.length === 0) throw assetNotFound();
+  res.status(200).json(result.rows[0]);
+};
+
+// PUT /api/assets/:id/valuation  body { value: "8500000.00" }
+// Sets a new manual value and returns the updated asset.
+exports.updateValuation = async (req, res) => {
+  const id = parseAssetId(req.params.id);
+  const userId = req.user.id;
+  const { value } = req.body;
+
+  const text = typeof value === "number" ? String(value) : value;
+  const valid =
+    typeof text === "string" &&
+    /^\d+(\.\d{1,2})?$/.test(text.trim()) &&
+    Number(text) <= Number(MAX_MANUAL_VALUE);
+  if (!valid) {
+    throw validationError(
+      [{ field: "value", message: "must be an amount from 0 to 10000000000.00 with at most 2 decimals" }],
+      "Check the highlighted field."
+    );
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const current = await client.query(
+      "SELECT UPPER(asset_type) AS type FROM assets WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL FOR UPDATE",
+      [id, userId]
+    );
+    if (current.rows.length === 0) throw assetNotFound();
+    if (MARKET_VALUED_TYPES.has(current.rows[0].type)) {
+      throw unprocessable("MARKET_VALUED", "This asset is valued from market prices.");
+    }
+
+    const updated = await client.query(
+      `UPDATE assets SET value = $1, updated_at = NOW()
+       WHERE id = $2 AND user_id = $3
+       RETURNING ${ASSET_COLUMNS}`,
+      [text.trim(), id, userId]
+    );
+
+    // TODO(B7, #63): also INSERT a MANUAL row into valuations here, in this
+    // transaction. Not done yet on purpose: valuations.asset_id still refers
+    // to the per-type tables (real_estate_assets, ...), not assets(id), so a
+    // row written with this id could be attributed to someone else's asset.
+    // B7 moves valuations.asset_id to assets(id); add the insert after that.
+
+    await client.query("COMMIT");
+    res.status(200).json(updated.rows[0]);
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+};
