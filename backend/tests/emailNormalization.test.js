@@ -18,16 +18,15 @@ describe("registration", () => {
   it("rejects the same email with different casing as already registered", async () => {
     expect((await registerUser({ email: "User@Example.com" })).status).toBe(201);
     const again = await registerUser({ email: "user@example.com" });
-    expect(again.status).toBeGreaterThanOrEqual(400);
-    expect(again.status).toBeLessThan(500);
-    expect(again.body.message ?? again.body.error?.message).toMatch(/already registered/i);
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe("CONFLICT");
+    expect(again.body.error.message).toMatch(/already registered/i);
   });
 
   it("rejects the same email with surrounding whitespace", async () => {
     expect((await registerUser({ email: "user@example.com" })).status).toBe(201);
     const again = await registerUser({ email: "  USER@example.com\t" });
-    expect(again.status).toBeGreaterThanOrEqual(400);
-    expect(again.status).toBeLessThan(500);
+    expect(again.status).toBe(409);
     const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM users");
     expect(rows[0].n).toBe(1);
   });

@@ -19,13 +19,21 @@ describe("POST /api/auth/register", () => {
   it("rejects a request with missing fields", async () => {
     const res = await request(app).post("/api/auth/register").send({ email: "x@example.com" });
     expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(res.body.error.fields.map((f) => f.field)).toEqual(["name", "password"]);
   });
 
-  it("rejects an email that is already registered", async () => {
+  it("rejects an email that is already registered with 409 CONFLICT", async () => {
     await registerUser();
     const res = await registerUser();
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(res.status).toBeLessThan(500);
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({
+      error: {
+        code: "CONFLICT",
+        message: "Email is already registered.",
+        fields: [{ field: "email", message: "Email is already registered." }]
+      }
+    });
   });
 });
 
@@ -44,6 +52,15 @@ describe("POST /api/auth/login", () => {
     const unknown = await request(app).post("/api/auth/login").send({ email: "nobody@example.com", password: PASSWORD });
     expect(wrong.status).toBe(401);
     expect(unknown.status).toBe(401);
+    // Identical bodies, so the response does not reveal whether the email exists.
+    expect(wrong.body).toEqual({ error: { code: "UNAUTHORIZED", message: "Invalid email or password.", fields: [] } });
+    expect(unknown.body).toEqual(wrong.body);
+  });
+
+  it("requires email and password", async () => {
+    const res = await request(app).post("/api/auth/login").send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error.fields.map((f) => f.field)).toEqual(["email", "password"]);
   });
 
   it("locks the account after 5 failed attempts: the 6th attempt returns 423", async () => {
@@ -55,6 +72,9 @@ describe("POST /api/auth/login", () => {
     // Even the correct password is refused while locked.
     const locked = await request(app).post("/api/auth/login").send({ email: "user@example.com", password: PASSWORD });
     expect(locked.status).toBe(423);
+    expect(locked.body.error.code).toBe("ACCOUNT_LOCKED");
+    expect(locked.body.error.message).toMatch(/Account locked after 5 failed attempts\. Please retry in 15 minutes\./);
+    expect(locked.body.error.fields).toEqual([]);
   });
 });
 

@@ -1,6 +1,7 @@
 
 const pool = require("../config/db");
 const PDFDocument = require("pdfkit");
+const { errorBody } = require("../utils/errors");
 
 async function getReportData(userId) {
   if (!userId) {
@@ -81,10 +82,9 @@ exports.exportCsv = async (req, res) => {
   } catch (error) {
     console.error("CSV export failed:", error.message);
 
-    return res.status(500).json({
-      success: false,
-      message: "Unable to generate CSV report."
-    });
+    return res.status(500).json(
+      errorBody("INTERNAL_ERROR", "Unable to generate CSV report.")
+    );
   }
 };
 
@@ -132,10 +132,9 @@ exports.exportPdf = async (req, res) => {
     console.error("PDF export failed:", error.message);
 
     if (!res.headersSent) {
-      return res.status(500).json({
-        success: false,
-        message: "Unable to generate PDF report."
-      });
+      return res.status(500).json(
+        errorBody("INTERNAL_ERROR", "Unable to generate PDF report.")
+      );
     }
 
     res.destroy(error);
