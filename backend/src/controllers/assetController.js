@@ -247,49 +247,85 @@ exports.getAsset = async (req, res) => {
 
 // PUT /api/assets/:id/valuation  body { value: "8500000.00" }
 // Sets a new manual value and returns the updated asset.
+// PUT /api/assets/:id/valuation
+// Updates the asset's manual value and records its valuation history.
+// Both operations happen in the same database transaction.
+// PUT /api/assets/:id/valuation
+// Updates the asset's manual value and records its history
+// in the same database transaction.
 exports.updateValuation = async (req, res) => {
   const id = parseAssetId(req.params.id);
   const userId = req.user.id;
   const { value } = req.body;
 
   const text = typeof value === "number" ? String(value) : value;
+
   const valid =
     typeof text === "string" &&
     /^\d+(\.\d{1,2})?$/.test(text.trim()) &&
     Number(text) <= Number(MAX_MANUAL_VALUE);
+
   if (!valid) {
     throw validationError(
-      [{ field: "value", message: "must be an amount from 0 to 10000000000.00 with at most 2 decimals" }],
+      [
+        {
+          field: "value",
+          message:
+            "must be an amount from 0 to 10000000000.00 with at most 2 decimals"
+        }
+      ],
       "Check the highlighted field."
     );
   }
 
   const client = await pool.connect();
+
   try {
     await client.query("BEGIN");
+
     const current = await client.query(
-      "SELECT UPPER(asset_type) AS type FROM assets WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL FOR UPDATE",
+      `SELECT
+         asset_type,
+         UPPER(asset_type) AS type
+       FROM assets
+       WHERE id = $1
+         AND user_id = $2
+         AND deleted_at IS NULL
+       FOR UPDATE`,
       [id, userId]
     );
-    if (current.rows.length === 0) throw assetNotFound();
+
+    if (current.rows.length === 0) {
+      throw assetNotFound();
+    }
+
     if (MARKET_VALUED_TYPES.has(current.rows[0].type)) {
-      throw unprocessable("MARKET_VALUED", "This asset is valued from market prices.");
+      throw unprocessable(
+        "MARKET_VALUED",
+        "This asset is valued from market prices."
+      );
     }
 
     const updated = await client.query(
-      `UPDATE assets SET value = $1, updated_at = NOW()
-       WHERE id = $2 AND user_id = $3
+      `UPDATE assets
+       SET value = $1,
+           updated_at = NOW()
+       WHERE id = $2
+         AND user_id = $3
        RETURNING ${ASSET_COLUMNS}`,
       [text.trim(), id, userId]
     );
 
-    // TODO(B7, #63): also INSERT a MANUAL row into valuations here, in this
-    // transaction. Not done yet on purpose: valuations.asset_id still refers
-    // to the per-type tables (real_estate_assets, ...), not assets(id), so a
-    // row written with this id could be attributed to someone else's asset.
-    // B7 moves valuations.asset_id to assets(id); add the insert after that.
+    // Record the manual valuation against the unified assets table.
+    await client.query(
+      `INSERT INTO valuations
+         (asset_type, asset_id, value, source, valued_at)
+       VALUES ($1, $2, $3, 'MANUAL', NOW())`,
+      [current.rows[0].asset_type, id, text.trim()]
+    );
 
     await client.query("COMMIT");
+
     res.status(200).json(updated.rows[0]);
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
