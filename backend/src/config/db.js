@@ -1,3 +1,4 @@
+
 const { Pool } = require("pg");
 const path = require("path");
 
@@ -10,7 +11,7 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT || 5432),
   user: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DB
+  database: process.env.DEV_POSTGRES_DB || process.env.POSTGRES_DB
 });
 
 module.exports = pool;
