@@ -1,6 +1,6 @@
-// App frame: top bar with the product name and main navigation. Auth screens
-// (login, password reset) get the bar without the navigation.
-// Reports and Settings are placeholders until those screens exist (SAD 4.8).
+
+import { logout } from '../api/auth.js';
+
 const NAV = [
   { label: 'Dashboard', href: '#/' },
   { label: 'Assets', href: '#/assets' },
@@ -17,6 +17,7 @@ export default function AppShell({ children, current, variant }) {
             <span className="brand-mark" aria-hidden="true">₹</span>
             <span>Wealth</span>
           </a>
+
           {variant !== 'auth' && (
             <nav aria-label="Main">
               <ul className="nav">
@@ -31,11 +32,22 @@ export default function AppShell({ children, current, variant }) {
                     </a>
                   </li>
                 ))}
+
+                <li>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={logout}
+                  >
+                    Logout
+                  </button>
+                </li>
               </ul>
             </nav>
           )}
         </div>
       </header>
+
       {children}
     </div>
   );

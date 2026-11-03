@@ -15,7 +15,7 @@
 
 import { ApiError } from './http.js';
 
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK_API !== 'false';
+export const USE_MOCK = false;
 
 export function mockMode() {
   return new URLSearchParams(window.location.search).get('mock');
