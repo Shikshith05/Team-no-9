@@ -30,7 +30,9 @@ async function fetchMarketPrice(url, apiKey) {
   });
 
   if (!response.ok) {
-    throw new Error(`Market provider returned HTTP ${response.status}`);
+    throw new Error(
+      `Market provider returned HTTP ${response.status}`
+    );
   }
 
   const data = await response.json();
@@ -46,7 +48,8 @@ async function fetchMarketPrice(url, apiKey) {
 async function savePrice(assetType, assetId, price, provider) {
   await pool.query(
     `INSERT INTO market_price_cache
-      (asset_type, asset_id, price, currency, provider, fetched_at, is_stale, last_error)
+      (asset_type, asset_id, price, currency, provider,
+       fetched_at, is_stale, last_error)
      VALUES ($1, $2, $3, 'INR', $4, CURRENT_TIMESTAMP, FALSE, NULL)
      ON CONFLICT (asset_type, asset_id)
      DO UPDATE SET
@@ -72,6 +75,7 @@ async function markPricesStale(assetType, error) {
   );
 }
 
+// B8 FIX: A failed stock must not stop other stock refreshes.
 async function refreshStockPrices() {
   try {
     const urlTemplate = getProviderUrl("STOCK_PRICE_API_URL");
@@ -79,6 +83,9 @@ async function refreshStockPrices() {
     const result = await pool.query(
       "SELECT id, ticker_symbol FROM stock_assets"
     );
+
+    let refreshed = 0;
+    const failed = [];
 
     for (const stock of result.rows) {
       try {
@@ -98,14 +105,43 @@ async function refreshStockPrices() {
           price,
           "stock-api"
         );
+
+        refreshed++;
       } catch (error) {
-        await markPricesStale("stock", error);
-        throw error;
+        // Mark only the failed stock as stale.
+        await pool.query(
+          `UPDATE market_price_cache
+           SET is_stale = TRUE,
+               last_error = $1,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE asset_type = 'stock'
+             AND asset_id = $2`,
+          [error.message, stock.id]
+        );
+
+        failed.push({
+          assetId: stock.id,
+          ticker: stock.ticker_symbol,
+          error: error.message
+        });
+
+        console.error(
+          `Stock refresh failed for ${stock.ticker_symbol}:`,
+          error.message
+        );
+
+        // Continue to the next stock.
       }
     }
 
-    return { success: true, refreshed: result.rowCount };
+    return {
+      success: failed.length === 0,
+      total: result.rowCount,
+      refreshed,
+      failed
+    };
   } catch (error) {
+    // Handle global failures such as missing provider configuration.
     await markPricesStale("stock", error);
     throw error;
   }
@@ -134,14 +170,25 @@ async function refreshGoldPrices() {
       const factor = purityFactors[gold.purity];
 
       if (!factor) {
-        throw new Error(`Unsupported gold purity: ${gold.purity}`);
+        throw new Error(
+          `Unsupported gold purity: ${gold.purity}`
+        );
       }
 
       const value = Number(
-        (pricePerGram * Number(gold.weight_grams) * factor).toFixed(2)
+        (
+          pricePerGram *
+          Number(gold.weight_grams) *
+          factor
+        ).toFixed(2)
       );
 
-      await savePrice("gold", gold.id, value, "gold-api");
+      await savePrice(
+        "gold",
+        gold.id,
+        value,
+        "gold-api"
+      );
 
       await pool.query(
         `UPDATE gold_assets
@@ -152,7 +199,10 @@ async function refreshGoldPrices() {
       );
     }
 
-    return { success: true, refreshed: result.rowCount };
+    return {
+      success: true,
+      refreshed: result.rowCount
+    };
   } catch (error) {
     await markPricesStale("gold", error);
     throw error;
