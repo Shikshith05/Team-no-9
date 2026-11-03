@@ -13,6 +13,7 @@ const authRoutes = require("./routes/authRoutes");
 const assetRoutes = require("./routes/assetRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const { startRefreshScheduler } = require("./services/refreshScheduler");
+const { apiNotFound, errorHandler } = require("./utils/errors");
 
 app.use(cors({
   origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
@@ -36,17 +37,10 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Central error handler
-app.use((err, req, res, next) => {
-  console.error(err);
-
-  if (res.headersSent) return next(err);
-
-  res.status(500).json({
-    success: false,
-    message: "Internal server error."
-  });
-});
+// Unknown API routes, then the central error handler: every error leaves
+// the API in the SAD format {"error":{"code","message","fields"}} (B6, #55).
+app.use("/api", apiNotFound);
+app.use(errorHandler);
 
 if (require.main === module) {
   app.listen(PORT, () => {
