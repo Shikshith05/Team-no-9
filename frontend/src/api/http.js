@@ -24,7 +24,7 @@ export function fieldErrors(error) {
 }
 
 export async function apiFetch(endpoint, options = {}) {
-  const token = localStorage.getItem('auth_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
 
   const headers = {
     'Content-Type': 'application/json',
@@ -38,6 +38,7 @@ export async function apiFetch(endpoint, options = {}) {
   });
 
   if (response.status === 401) {
+    localStorage.removeItem('token');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
@@ -64,3 +65,5 @@ export async function apiFetch(endpoint, options = {}) {
 
   return response;
 }
+
+export default { apiFetch, ApiError, isUnauthorized, fieldErrors };

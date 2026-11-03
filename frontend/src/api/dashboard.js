@@ -1,7 +1,9 @@
 ﻿import { apiFetch } from './http';
 
 export async function fetchDashboardSummary() {
-  const data = await apiFetch('/api/assets/dashboard-summary');
+  const res = await apiFetch('/api/assets/dashboard-summary');
+  const data = res.data || res;
+
   return {
     netWorth: data.netWorth || data.totalValue || '0.00',
     currency: data.currency || 'INR',
@@ -13,9 +15,13 @@ export async function fetchDashboardSummary() {
 
 export async function fetchDashboardTrend(range = '1M') {
   try {
-    const data = await apiFetch(`/api/assets/dashboard-trend?range=${encodeURIComponent(range)}`);
+    const res = await apiFetch(`/api/assets/dashboard-trend?range=${encodeURIComponent(range)}`);
+    const data = res.data || res;
     return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
+  } catch (err) {
+    if (err.status === 404) {
+      return [];
+    }
+    throw err;
   }
 }
