@@ -1,46 +1,67 @@
-// Login screen. A placeholder until the auth API (register / login) is merged:
-// the form is laid out, but signing in isn't wired up yet. "Forgot password?"
-// starts the reset flow (PWM-F-003). The "Please log in again" message links here.
-import { useState } from 'react';
+﻿import React, { useState } from 'react';
+import { authApi } from '../api/auth';
 
 export default function LoginPage() {
-  const [notice, setNotice] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setErrorMessage('');
+
+    if (!email || !password) {
+      setErrorMessage('Please enter both email and password.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await authApi.login(email, password);
+      window.location.href = '/dashboard';
+    } catch (err) {
+      setErrorMessage(err.message || 'Invalid email or password.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <main className="page auth-page">
-      <div className="card auth-card">
-        <h1 tabIndex={-1}>Log in</h1>
-        <form
-          className="form"
-          noValidate
-          onSubmit={(event) => {
-            event.preventDefault();
-            setNotice(true);
-          }}
-        >
-          <div className="field">
-            <label htmlFor="login-email">Email</label>
-            <input id="login-email" name="email" type="email" className="input" autoComplete="username" />
+    <div className="login-container">
+      <form onSubmit={handleSubmit} className="login-form">
+        <h2>Sign In</h2>
+        {errorMessage && (
+          <div className="error-alert" role="alert" style={{ color: 'red', marginBottom: '1rem' }}>
+            {errorMessage}
           </div>
-          <div className="field">
-            <div className="field-label-row">
-              <label htmlFor="login-password">Password</label>
-              <a className="text-link" href="#/forgot-password">
-                Forgot password?
-              </a>
-            </div>
-            <input id="login-password" name="password" type="password" className="input" autoComplete="current-password" />
-          </div>
-          {notice && (
-            <p className="form-note" role="status">
-              Logging in isn't connected yet. It will work once the authentication API is merged.
-            </p>
-          )}
-          <button type="submit" className="button button-block">
-            Log in
-          </button>
-        </form>
-      </div>
-    </main>
+        )}
+        <div className="form-group">
+          <label htmlFor="email">Email</label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
+            required
+          />
+        </div>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Signing in...' : 'Sign In'}
+        </button>
+      </form>
+    </div>
   );
 }

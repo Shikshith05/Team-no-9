@@ -1,54 +1,39 @@
-// Fetch wrapper for the REST API (SAD 4.3.1).
-// Every request sends the auth cookie (credentials: 'include'). Error responses
-// become an ApiError carrying the SAD error shape:
-//   {"error": {"code": "VALIDATION_ERROR", "message": "...",
-//              "fields": [{"field": "value", "message": "must be 0 or more"}]}}
-// A 401 means the session is missing, expired or revoked; screens show
-// "Please log in again" for it (see useApiResource and SessionExpired).
+﻿const BASE_URL = import.meta.env.VITE_API_URL || '';
 
-export class ApiError extends Error {
-  constructor(status, { code, message, fields } = {}) {
-    super(message || `Request failed (${status})`);
-    this.name = 'ApiError';
-    this.status = status;
-    this.code = code ?? null;
-    this.fields = Array.isArray(fields) ? fields : [];
-  }
-}
+export async function apiFetch(endpoint, options = {}) {
+  const token = localStorage.getItem('auth_token');
 
-export async function apiFetch(path, { method = 'GET', body } = {}) {
-  const init = { method, credentials: 'include', headers: { Accept: 'application/json' } };
-  if (body !== undefined) {
-    init.headers['Content-Type'] = 'application/json';
-    init.body = JSON.stringify(body);
-  }
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
 
-  let res;
-  try {
-    res = await fetch(path, init);
-  } catch {
-    throw new ApiError(0, { code: 'NETWORK_ERROR', message: 'Could not reach the server.' });
-  }
+  const response = await fetch(`${BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
 
-  // 202 and 204 replies have no body.
-  const text = await res.text();
-  let data = null;
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = null;
+  if (response.status === 401) {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login?expired=true';
     }
   }
-  if (!res.ok) throw new ApiError(res.status, data?.error ?? {});
-  return data;
-}
 
-export function isUnauthorized(error) {
-  return error?.status === 401;
-}
+  const contentType = response.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || `Request failed with status ${response.status}`);
+    }
+    return data;
+  }
 
-/** Field-level messages from a VALIDATION_ERROR, keyed by field name. */
-export function fieldErrors(error) {
-  return Object.fromEntries((error?.fields ?? []).map((f) => [f.field, f.message]));
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  return response;
 }
