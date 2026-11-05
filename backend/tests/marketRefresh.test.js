@@ -49,6 +49,7 @@ describe("B9 market price refresh", () => {
     );
 
     expect(cache.rows[0].price).toBe("100.00");
+
     expect(history.rows[0]).toMatchObject({
       value: "400.00",
       unit_price: "100.00",
@@ -80,6 +81,7 @@ describe("B9 market price refresh", () => {
     );
 
     expect(cache.rows[0].price).toBe("100.00");
+
     expect(gold.rows[0].current_estimated_value).toBe("916.67");
 
     expect(history.rows[0]).toMatchObject({
@@ -107,12 +109,18 @@ describe("B9 market price refresh", () => {
       vi.fn().mockRejectedValue(new Error("Provider unavailable"))
     );
 
-    await expect(refreshStockPrices()).rejects.toThrow(
-      "Provider unavailable"
-    );
+    const result = await refreshStockPrices();
+
+    expect(result.success).toBe(false);
+    expect(result.total).toBe(1);
+    expect(result.refreshed).toBe(0);
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].ticker).toBe("INFY");
 
     const cache = await pool.query(
-      "SELECT price, is_stale FROM market_price_cache WHERE asset_type = 'stock' AND asset_id = 1"
+      `SELECT price, is_stale
+       FROM market_price_cache
+       WHERE asset_type = 'stock' AND asset_id = 1`
     );
 
     const history = await pool.query(
@@ -122,5 +130,35 @@ describe("B9 market price refresh", () => {
     expect(cache.rows[0].price).toBe("75.00");
     expect(cache.rows[0].is_stale).toBe(true);
     expect(history.rows).toHaveLength(0);
+  });
+});
+
+describe("B8 stock market refresh", () => {
+  it("continues refreshing after one ticker fails", async () => {
+    await pool.query(
+      `INSERT INTO stock_assets
+       (ticker_symbol, quantity, average_buy_price)
+       VALUES
+       ('FAIL', 1, 100),
+       ('SUCCESS', 2, 100)`
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockRejectedValueOnce(new Error("Provider unavailable"))
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ price: 250 })
+        })
+    );
+
+    const result = await refreshStockPrices();
+
+    expect(result.total).toBe(2);
+    expect(result.refreshed).toBe(1);
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].ticker).toBe("FAIL");
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });

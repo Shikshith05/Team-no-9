@@ -36,7 +36,9 @@ async function fetchMarketPrice(url, apiKey) {
   });
 
   if (!response.ok) {
-    throw new Error(`Market provider returned HTTP ${response.status}`);
+    throw new Error(
+      `Market provider returned HTTP ${response.status}`
+    );
   }
 
   const data = await response.json();
@@ -52,7 +54,8 @@ async function fetchMarketPrice(url, apiKey) {
 async function savePrice(client, assetType, assetId, price, provider) {
   await client.query(
     `INSERT INTO market_price_cache
-      (asset_type, asset_id, price, currency, provider, fetched_at, is_stale, last_error)
+      (asset_type, asset_id, price, currency, provider,
+       fetched_at, is_stale, last_error)
      VALUES ($1, $2, $3, 'INR', $4, CURRENT_TIMESTAMP, FALSE, NULL)
      ON CONFLICT (asset_type, asset_id)
      DO UPDATE SET
@@ -101,34 +104,61 @@ async function refreshStockPrices() {
       "SELECT id, ticker_symbol, quantity FROM stock_assets"
     );
 
-    // Fetch and validate every price before changing the database.
     const updates = [];
+    const failed = [];
 
+    // Fetch each stock independently.
     for (const stock of result.rows) {
-      const url = urlTemplate.replace(
-        "{symbol}",
-        encodeURIComponent(stock.ticker_symbol)
-      );
+      try {
+        const url = urlTemplate.replace(
+          "{symbol}",
+          encodeURIComponent(stock.ticker_symbol)
+        );
 
-      const unitPrice = await fetchMarketPrice(
-        url,
-        process.env.STOCK_PRICE_API_KEY
-      );
+        const unitPrice = await fetchMarketPrice(
+          url,
+          process.env.STOCK_PRICE_API_KEY
+        );
 
-      const totalValue = Number(
-        (unitPrice * Number(stock.quantity)).toFixed(2)
-      );
+        const totalValue = Number(
+          (unitPrice * Number(stock.quantity)).toFixed(2)
+        );
 
-      updates.push({
-        id: stock.id,
-        unitPrice,
-        totalValue
-      });
+        updates.push({
+          id: stock.id,
+          ticker: stock.ticker_symbol,
+          unitPrice,
+          totalValue
+        });
+      } catch (error) {
+        // Mark the failed stock as stale.
+        await pool.query(
+          `UPDATE market_price_cache
+           SET is_stale = TRUE,
+               last_error = $1,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE asset_type = 'stock'
+             AND asset_id = $2`,
+          [error.message, stock.id]
+        );
+
+        failed.push({
+          assetId: stock.id,
+          ticker: stock.ticker_symbol,
+          error: error.message
+        });
+
+        console.error(
+          `Stock refresh failed for ${stock.ticker_symbol}:`,
+          error.message
+        );
+      }
     }
 
+    // Save successful stock updates together.
     await runTransaction(async (client) => {
       for (const stock of updates) {
-        // Cache stores price per share, not total holding value.
+        // Cache stores price per share.
         await savePrice(
           client,
           "stock",
@@ -137,7 +167,7 @@ async function refreshStockPrices() {
           "stock-api"
         );
 
-        // History stores total value and per-share unit price.
+        // History stores total holding value and unit price.
         await client.query(
           `INSERT INTO valuations
             (asset_type, asset_id, value, unit_price, source)
@@ -147,8 +177,14 @@ async function refreshStockPrices() {
       }
     });
 
-    return { success: true, refreshed: updates.length };
+    return {
+      success: failed.length === 0,
+      total: result.rows.length,
+      refreshed: updates.length,
+      failed
+    };
   } catch (error) {
+    // Handle global failures such as missing provider configuration.
     await markPricesStale("stock", error);
     throw error;
   }
@@ -191,7 +227,7 @@ async function refreshGoldPrices() {
 
     await runTransaction(async (client) => {
       for (const gold of updates) {
-        // Cache stores the rate per gram, not total gold value.
+        // Cache stores the rate per gram.
         await savePrice(
           client,
           "gold",
@@ -218,7 +254,10 @@ async function refreshGoldPrices() {
       }
     });
 
-    return { success: true, refreshed: updates.length };
+    return {
+      success: true,
+      refreshed: updates.length
+    };
   } catch (error) {
     await markPricesStale("gold", error);
     throw error;

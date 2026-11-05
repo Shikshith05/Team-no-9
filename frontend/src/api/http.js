@@ -1,4 +1,4 @@
-// Fetch wrapper for the REST API (SAD 4.3.1).
+﻿// Fetch wrapper for the REST API (SAD 4.3.1).
 // Every request sends the auth cookie (credentials: 'include'). Error responses
 // become an ApiError carrying the SAD error shape:
 //   {"error": {"code": "VALIDATION_ERROR", "message": "...",
@@ -18,6 +18,8 @@ export class ApiError extends Error {
 
 export async function apiFetch(path, { method = 'GET', body } = {}) {
   const init = { method, credentials: 'include', headers: { Accept: 'application/json' } };
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+  if (token) init.headers.Authorization = `Bearer ${token}`;
   if (body !== undefined) {
     init.headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(body);
@@ -52,3 +54,5 @@ export function isUnauthorized(error) {
 export function fieldErrors(error) {
   return Object.fromEntries((error?.fields ?? []).map((f) => [f.field, f.message]));
 }
+
+
