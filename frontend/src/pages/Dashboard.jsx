@@ -1,30 +1,82 @@
 
-import React, { useState } from 'react';
-import { configureAlertThreshold } from '../alertService';
+import React, { useState, useEffect } from 'react';
+import { apiFetch } from '../api/http.js';
 
 export default function Dashboard() {
   const [alertLogs, setAlertLogs] = useState([]);
-
+  const [savedAlerts, setSavedAlerts] = useState([]);
   const [assetType, setAssetType] = useState('stock');
   const [condition, setCondition] = useState('ABOVE');
   const [targetPrice, setTargetPrice] = useState('');
+  const [loadingAlerts, setLoadingAlerts] = useState(true);
+  const [savingAlert, setSavingAlert] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSaveAlert = () => {
-    if (!targetPrice || parseFloat(targetPrice) <= 0) return;
+  // Load saved alerts belonging to the logged-in user.
+  useEffect(() => {
+    let active = true;
 
-    configureAlertThreshold(
-      'user_01',
-      assetType,
-      parseFloat(targetPrice),
-      condition
-    );
+    const loadAlerts = async () => {
+      try {
+        const result = await apiFetch('/api/alerts');
 
-    setAlertLogs(prev => [
-      ...prev,
-      `Threshold Saved: ${assetType} ${condition} $${targetPrice}`
-    ]);
+        if (active) {
+          setSavedAlerts(result.data || []);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err.message || 'Could not load saved alerts. Please log in.');
+        }
+      } finally {
+        if (active) {
+          setLoadingAlerts(false);
+        }
+      }
+    };
 
-    setTargetPrice('');
+    loadAlerts();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Save alert permanently for the logged-in user.
+  const handleSaveAlert = async () => {
+    setError('');
+
+    const price = Number(targetPrice);
+
+    if (!targetPrice || !Number.isFinite(price) || price <= 0) {
+      setError('Enter a valid target price greater than zero.');
+      return;
+    }
+
+    setSavingAlert(true);
+
+    try {
+      const result = await apiFetch('/api/alerts', {
+        method: 'POST',
+        body: {
+          assetType,
+          condition,
+          targetPrice: price
+        }
+      });
+
+      setSavedAlerts((prev) => [result.data, ...prev]);
+
+      setAlertLogs((prev) => [
+        ...prev,
+        `Saved: ${assetType} ${condition} $${price}`
+      ]);
+
+      setTargetPrice('');
+    } catch (err) {
+      setError(err.message || 'Could not save alert.');
+    } finally {
+      setSavingAlert(false);
+    }
   };
 
   return (
@@ -47,7 +99,7 @@ export default function Dashboard() {
           marginBottom: '30px'
         }}
       >
-        <h3>Configure Custom Valuation Alerts</h3>
+        <h3>Configure Custom Valuation Alert Boundaries</h3>
 
         <div
           style={{
@@ -59,7 +111,7 @@ export default function Dashboard() {
         >
           <select
             value={assetType}
-            onChange={e => setAssetType(e.target.value)}
+            onChange={(e) => setAssetType(e.target.value)}
             style={{ padding: '8px', borderRadius: '4px' }}
           >
             <option value="stock">Stock Portfolio</option>
@@ -68,17 +120,19 @@ export default function Dashboard() {
 
           <select
             value={condition}
-            onChange={e => setCondition(e.target.value)}
+            onChange={(e) => setCondition(e.target.value)}
             style={{ padding: '8px', borderRadius: '4px' }}
           >
-            <option value="ABOVE">Rises Above (≥)</option>
-            <option value="BELOW">Drops Below (≤)</option>
+            <option value="ABOVE">Rises Above (&gt;=)</option>
+            <option value="BELOW">Drops Below (&lt;=)</option>
           </select>
 
           <input
             type="number"
+            min="0.01"
+            step="0.01"
             value={targetPrice}
-            onChange={e => setTargetPrice(e.target.value)}
+            onChange={(e) => setTargetPrice(e.target.value)}
             placeholder="Target Trigger Value"
             style={{
               padding: '8px',
@@ -88,7 +142,9 @@ export default function Dashboard() {
           />
 
           <button
+            type="button"
             onClick={handleSaveAlert}
+            disabled={savingAlert}
             style={{
               padding: '8px 16px',
               background: '#1f883d',
@@ -99,9 +155,34 @@ export default function Dashboard() {
               fontWeight: 'bold'
             }}
           >
-            Save Threshold Rule
+            {savingAlert ? 'Saving...' : 'Save Threshold Rule'}
           </button>
         </div>
+
+        {error && (
+          <p role="alert" style={{ color: '#cf222e' }}>
+            {error}
+          </p>
+        )}
+      </div>
+
+      <div style={{ marginBottom: '30px' }}>
+        <h3>Your Saved Alerts</h3>
+
+        {loadingAlerts ? (
+          <p>Loading saved alerts...</p>
+        ) : savedAlerts.length === 0 ? (
+          <p>No saved alerts yet.</p>
+        ) : (
+          <ul>
+            {savedAlerts.map((alert) => (
+              <li key={alert.id}>
+                {alert.assetType.toUpperCase()} — {alert.condition}{' '}
+                ${Number(alert.targetPrice).toFixed(2)}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div>

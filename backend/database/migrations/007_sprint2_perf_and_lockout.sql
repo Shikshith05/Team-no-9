@@ -1,4 +1,4 @@
-﻿-- 1. Ensure users table exists with lockout columns (Story #1, #2, #31 & PRJ-SR-005)
+-- 1. Ensure users table exists with lockout columns (Story #1, #2, #31 & PRJ-SR-005)
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255),
