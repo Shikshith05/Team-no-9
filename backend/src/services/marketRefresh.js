@@ -3,6 +3,12 @@ const pool = require("../config/db");
 
 const REQUEST_TIMEOUT_MS = 8000;
 
+const PURITY_FACTORS = {
+  "18K": 0.75,
+  "22K": 22 / 24,
+  "24K": 1
+};
+
 function getProviderUrl(name) {
   const url = process.env[name];
 
@@ -43,8 +49,8 @@ async function fetchMarketPrice(url, apiKey) {
   return price;
 }
 
-async function savePrice(assetType, assetId, price, provider) {
-  await pool.query(
+async function savePrice(client, assetType, assetId, price, provider) {
+  await client.query(
     `INSERT INTO market_price_cache
       (asset_type, asset_id, price, currency, provider, fetched_at, is_stale, last_error)
      VALUES ($1, $2, $3, 'INR', $4, CURRENT_TIMESTAMP, FALSE, NULL)
@@ -72,39 +78,76 @@ async function markPricesStale(assetType, error) {
   );
 }
 
+async function runTransaction(work) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    await work(client);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function refreshStockPrices() {
   try {
     const urlTemplate = getProviderUrl("STOCK_PRICE_API_URL");
 
     const result = await pool.query(
-      "SELECT id, ticker_symbol FROM stock_assets"
+      "SELECT id, ticker_symbol, quantity FROM stock_assets"
     );
 
+    // Fetch and validate every price before changing the database.
+    const updates = [];
+
     for (const stock of result.rows) {
-      try {
-        const url = urlTemplate.replace(
-          "{symbol}",
-          encodeURIComponent(stock.ticker_symbol)
-        );
+      const url = urlTemplate.replace(
+        "{symbol}",
+        encodeURIComponent(stock.ticker_symbol)
+      );
 
-        const price = await fetchMarketPrice(
-          url,
-          process.env.STOCK_PRICE_API_KEY
-        );
+      const unitPrice = await fetchMarketPrice(
+        url,
+        process.env.STOCK_PRICE_API_KEY
+      );
 
-        await savePrice(
-          "stock",
-          stock.id,
-          price,
-          "stock-api"
-        );
-      } catch (error) {
-        await markPricesStale("stock", error);
-        throw error;
-      }
+      const totalValue = Number(
+        (unitPrice * Number(stock.quantity)).toFixed(2)
+      );
+
+      updates.push({
+        id: stock.id,
+        unitPrice,
+        totalValue
+      });
     }
 
-    return { success: true, refreshed: result.rowCount };
+    await runTransaction(async (client) => {
+      for (const stock of updates) {
+        // Cache stores price per share, not total holding value.
+        await savePrice(
+          client,
+          "stock",
+          stock.id,
+          stock.unitPrice,
+          "stock-api"
+        );
+
+        // History stores total value and per-share unit price.
+        await client.query(
+          `INSERT INTO valuations
+            (asset_type, asset_id, value, unit_price, source)
+           VALUES ('stock', $1, $2, $3, 'MARKET')`,
+          [stock.id, stock.totalValue, stock.unitPrice]
+        );
+      }
+    });
+
+    return { success: true, refreshed: updates.length };
   } catch (error) {
     await markPricesStale("stock", error);
     throw error;
@@ -115,6 +158,7 @@ async function refreshGoldPrices() {
   try {
     const url = getProviderUrl("GOLD_PRICE_API_URL");
 
+    // Provider price is the base rate per gram.
     const pricePerGram = await fetchMarketPrice(
       url,
       process.env.GOLD_PRICE_API_KEY
@@ -124,35 +168,57 @@ async function refreshGoldPrices() {
       "SELECT id, weight_grams, purity FROM gold_assets"
     );
 
-    const purityFactors = {
-      "18K": 0.75,
-      "22K": 22 / 24,
-      "24K": 1
-    };
+    const updates = result.rows.map((gold) => {
+      const factor = PURITY_FACTORS[gold.purity];
 
-    for (const gold of result.rows) {
-      const factor = purityFactors[gold.purity];
-
-      if (!factor) {
+      if (factor === undefined) {
         throw new Error(`Unsupported gold purity: ${gold.purity}`);
       }
 
-      const value = Number(
-        (pricePerGram * Number(gold.weight_grams) * factor).toFixed(2)
+      const totalValue = Number(
+        (
+          pricePerGram *
+          Number(gold.weight_grams) *
+          factor
+        ).toFixed(2)
       );
 
-      await savePrice("gold", gold.id, value, "gold-api");
+      return {
+        id: gold.id,
+        totalValue
+      };
+    });
 
-      await pool.query(
-        `UPDATE gold_assets
-         SET current_estimated_value = $1,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $2`,
-        [value, gold.id]
-      );
-    }
+    await runTransaction(async (client) => {
+      for (const gold of updates) {
+        // Cache stores the rate per gram, not total gold value.
+        await savePrice(
+          client,
+          "gold",
+          gold.id,
+          pricePerGram,
+          "gold-api"
+        );
 
-    return { success: true, refreshed: result.rowCount };
+        await client.query(
+          `UPDATE gold_assets
+           SET current_estimated_value = $1,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $2`,
+          [gold.totalValue, gold.id]
+        );
+
+        // History stores total value and base price per gram.
+        await client.query(
+          `INSERT INTO valuations
+            (asset_type, asset_id, value, unit_price, source)
+           VALUES ('gold', $1, $2, $3, 'MARKET')`,
+          [gold.id, gold.totalValue, pricePerGram]
+        );
+      }
+    });
+
+    return { success: true, refreshed: updates.length };
   } catch (error) {
     await markPricesStale("gold", error);
     throw error;
