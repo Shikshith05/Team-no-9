@@ -1,52 +1,159 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createRequire } from "node:module";
 
-const require = createRequire(import.meta.url);
-const pool = require("../src/config/db");
-import { refreshStockPrices } from "../src/services/marketRefresh";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
-describe("B8 - Stock market refresh", () => {
-  let querySpy;
+const { pool, resetDatabase } = require("./helpers");
 
-  beforeEach(() => {
-    vi.clearAllMocks();
+const {
+  refreshStockPrices,
+  refreshGoldPrices
+} = require("../src/services/marketRefresh");
 
-    process.env.STOCK_PRICE_API_URL =
-      "https://example.com/price?symbol={symbol}";
+beforeEach(async () => {
+  await resetDatabase();
 
-    querySpy = vi.spyOn(pool, "query").mockImplementation(async (sql) => {
-      if (sql.includes("SELECT id, ticker_symbol FROM stock_assets")) {
-        return {
-          rows: [
-            { id: 1, ticker_symbol: "FAIL" },
-            { id: 2, ticker_symbol: "SUCCESS" }
-          ],
-          rowCount: 2
-        };
-      }
+  process.env.STOCK_PRICE_API_URL =
+    "https://stock.example.com/{symbol}";
 
-      return { rows: [], rowCount: 1 };
+  process.env.GOLD_PRICE_API_URL =
+    "https://gold.example.com/price";
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ price: 100 })
+    })
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("B9 market price refresh", () => {
+  it("stores stock per-share price and records total valuation", async () => {
+    await pool.query(
+      `INSERT INTO stock_assets
+       (ticker_symbol, quantity, average_buy_price)
+       VALUES ('TCS', 4, 80)`
+    );
+
+    await refreshStockPrices();
+
+    const cache = await pool.query(
+      "SELECT price FROM market_price_cache WHERE asset_type = 'stock'"
+    );
+
+    const history = await pool.query(
+      "SELECT value, unit_price, source FROM valuations WHERE asset_type = 'stock'"
+    );
+
+    expect(cache.rows[0].price).toBe("100.00");
+
+    expect(history.rows[0]).toMatchObject({
+      value: "400.00",
+      unit_price: "100.00",
+      source: "MARKET"
     });
+  });
+
+  it("stores gold rate per gram and calculates 22K value", async () => {
+    await pool.query(
+      `INSERT INTO gold_assets
+       (asset_name, gold_type, weight_grams, purity,
+        purchase_value, purchase_date, current_estimated_value)
+       VALUES ('Gold Chain', 'jewellery', 10, '22K',
+               50000, CURRENT_DATE, 50000)`
+    );
+
+    await refreshGoldPrices();
+
+    const cache = await pool.query(
+      "SELECT price FROM market_price_cache WHERE asset_type = 'gold'"
+    );
+
+    const gold = await pool.query(
+      "SELECT current_estimated_value FROM gold_assets"
+    );
+
+    const history = await pool.query(
+      "SELECT value, unit_price, source FROM valuations WHERE asset_type = 'gold'"
+    );
+
+    expect(cache.rows[0].price).toBe("100.00");
+
+    expect(gold.rows[0].current_estimated_value).toBe("916.67");
+
+    expect(history.rows[0]).toMatchObject({
+      value: "916.67",
+      unit_price: "100.00",
+      source: "MARKET"
+    });
+  });
+
+  it("preserves cached stock price and creates no history on failure", async () => {
+    await pool.query(
+      `INSERT INTO stock_assets
+       (ticker_symbol, quantity, average_buy_price)
+       VALUES ('INFY', 2, 50)`
+    );
+
+    await pool.query(
+      `INSERT INTO market_price_cache
+       (asset_type, asset_id, price, fetched_at)
+       VALUES ('stock', 1, 75, CURRENT_TIMESTAMP)`
+    );
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("Provider unavailable"))
+    );
+
+    const result = await refreshStockPrices();
+
+    expect(result.success).toBe(false);
+    expect(result.total).toBe(1);
+    expect(result.refreshed).toBe(0);
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].ticker).toBe("INFY");
+
+    const cache = await pool.query(
+      `SELECT price, is_stale
+       FROM market_price_cache
+       WHERE asset_type = 'stock' AND asset_id = 1`
+    );
+
+    const history = await pool.query(
+      "SELECT * FROM valuations WHERE asset_type = 'stock'"
+    );
+
+    expect(cache.rows[0].price).toBe("75.00");
+    expect(cache.rows[0].is_stale).toBe(true);
+    expect(history.rows).toHaveLength(0);
+  });
+});
+
+describe("B8 stock market refresh", () => {
+  it("continues refreshing after one ticker fails", async () => {
+    await pool.query(
+      `INSERT INTO stock_assets
+       (ticker_symbol, quantity, average_buy_price)
+       VALUES
+       ('FAIL', 1, 100),
+       ('SUCCESS', 2, 100)`
+    );
 
     vi.stubGlobal(
       "fetch",
       vi.fn()
-        .mockResolvedValueOnce({ ok: false, status: 500 })
+        .mockRejectedValueOnce(new Error("Provider unavailable"))
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ price: 250 })
         })
     );
-  })
 
-  afterEach(() => {
-    querySpy.mockRestore();
-    vi.unstubAllGlobals();
-  });
-
-  it("continues refreshing after one ticker fails", async () => {
     const result = await refreshStockPrices();
-
 
     expect(result.total).toBe(2);
     expect(result.refreshed).toBe(1);
