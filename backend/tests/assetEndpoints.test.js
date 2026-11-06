@@ -133,13 +133,37 @@ describe("PUT /api/assets/:id/valuation", () => {
     expect(summary.body.totalNetWorth).toBe(250.5);
   });
 
-  it("does not write to valuations yet (blocked on B7, #63)", async () => {
-    const { auth } = await createLoggedInUser();
-    const asset = await createAsset(auth, { assetType: "REAL_ESTATE" });
-    await request(app).put(`/api/assets/${asset.id}/valuation`).set("Authorization", auth).send({ value: "1.00" });
-    const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM valuations");
-    expect(rows[0].n).toBe(0);
+  it("writes a MANUAL valuation record for the updated asset", async () => {
+  const { auth } = await createLoggedInUser();
+
+  const asset = await createAsset(auth, {
+    assetType: "REAL_ESTATE",
+    value: 100
   });
+
+  const res = await request(app)
+    .put(`/api/assets/${asset.id}/valuation`)
+    .set("Authorization", auth)
+    .send({ value: "250.50" });
+
+  expect(res.status).toBe(200);
+  expect(res.body.currentValue).toBe("250.50");
+
+  const { rows } = await pool.query(
+    `SELECT asset_id, asset_type, value, source
+     FROM valuations
+     WHERE asset_id = $1`,
+    [asset.id]
+  );
+
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({
+    asset_id: String(asset.id),
+    asset_type: "REAL_ESTATE",
+    value: "250.50",
+    source: "MANUAL"
+  });
+});
 
   it.each([
     ["negative", "-1"],

@@ -5,7 +5,7 @@ Integration branch: `fix/bug-bash`. Each bug has its own issue, owner and fix br
 
 Owners (from #52): Shikshith: B3, B4, B5, B6, B14, bug log; Sateesh: B1, B2, B11, B15; Greeshma: B7, B7b, B13; Rushikesh: B8, B9, B10, B12.
 
-Status as of 2026-11-01.
+Status as of 2026-11-06.
 
 ## Summary
 
@@ -15,10 +15,10 @@ Status as of 2026-11-01.
 | B2 | [#60](https://github.com/Shikshith05/Team-no-9/issues/60) | Resolve frontend and backend authentication mismatch | Sateesh5298 | Open – assigned to Sateesh |
 | B3 | [#56](https://github.com/Shikshith05/Team-no-9/issues/56) | Normalize email addresses to prevent case-sensitive duplicate accounts | Shikshith05 | Fixed in this branch |
 | B4 | [#57](https://github.com/Shikshith05/Team-no-9/issues/57) | Add email format and password strength validation during registration | Shikshith05 | Fixed in this branch |
-| B5 | [#54](https://github.com/Shikshith05/Team-no-9/issues/54) | Implement missing asset APIs | Shikshith05 | Fixed in this branch (valuation-history row waits for B7) |
+| B5 | [#54](https://github.com/Shikshith05/Team-no-9/issues/54) | Implement missing asset APIs | Shikshith05 | Fixed in this branch; manual valuation-history write implemented by B7 PR #73 |
 | B6 | [#55](https://github.com/Shikshith05/Team-no-9/issues/55) | Standardize API error responses and prevent database error leakage | Shikshith05 | Fixed in this branch |
-| B7 | [#63](https://github.com/Shikshith05/Team-no-9/issues/63) | Fix valuation asset relationship and implement valuation history API | GREESHMA-K77 | Open – assigned to Greeshma |
-| B7b | [#64](https://github.com/Shikshith05/Team-no-9/issues/64) | Restore secure valuation history in CSV and PDF exports | GREESHMA-K77 | Open – assigned to Greeshma (blocked by B7) |
+| B7 | [#63](https://github.com/Shikshith05/Team-no-9/issues/63) | Fix valuation asset relationship and implement valuation history API | GREESHMA-K77 | Fixed in PR #73 – pending merge |
+| B7b | [#64](https://github.com/Shikshith05/Team-no-9/issues/64) | Restore secure valuation history in CSV and PDF exports | GREESHMA-K77 | Open – assigned to Greeshma (unblocked by B7 PR #73) |
 | B8 | none | Not recorded (no GitHub issue yet) | Rushikesh (per #52) | Open – no tracking issue |
 | B9 | none | Not recorded (no GitHub issue yet) | Rushikesh (per #52) | Open – no tracking issue |
 | B10 | none | Not recorded (no GitHub issue yet) | Rushikesh (per #52) | Open – no tracking issue |
@@ -30,7 +30,7 @@ Status as of 2026-11-01.
 
 Open items that block closing #58 (its acceptance criteria say every bug must have its own issue and no critical bug may remain open):
 - B8, B9, B10 and B12 have no GitHub issue, so their titles, steps and root causes are not recorded here. Rushikesh needs to create them.
-- B7 is a cross-user data-exposure risk (valuation IDs collide across asset tables) and is still open. B5's valuation history write and B7b both depend on it.
+- The B7 cross-user valuation exposure is fixed in PR #73, pending merge. B7b is now unblocked and can restore valuation history in exports.
 - B14 has two issues (#51 and #53). The fix references both; #53 can be closed as a duplicate.
 
 ## Details
@@ -61,7 +61,7 @@ Open items that block closing #58 (its acceptance criteria say every bug must ha
 - **Steps to reproduce (before):** with a valid token, `GET /api/assets`, `GET /api/assets/1` and `PUT /api/assets/1/valuation` return Express's HTML 404. The Assets, valuation and history screens can only run on mock data.
 - **Root cause:** only create, update, delete and dashboard-summary were implemented.
 - **Fix:** list (type filter, page/limit, `{items,page,limit,total}`), get-one and manual valuation on the `assets` table, all scoped to the caller and to non-deleted rows, in the shapes of `frontend/src/api/assets.js`. Stock and gold are refused with 422 `MARKET_VALUED`. Another user's asset is 404.
-- **Known gap:** the MANUAL row in `valuations` is not written yet, because `valuations.asset_id` still points at the per-type tables (B7). A TODO marks the place. `location` and `purchaseValue` are null because the unified table has no such columns.
+- **Valuation history:** Manual valuation updates now write a MANUAL row to `valuations` in the same transaction (implemented in B7 PR #73, pending merge). `location` and `purchaseValue` remain null because the unified table has no such columns.
 - **Tests:** `backend/tests/assetEndpoints.test.js`.
 
 ### B6 – Inconsistent errors and database error leakage (#55) – Fixed
@@ -73,12 +73,13 @@ Open items that block closing #58 (its acceptance criteria say every bug must ha
 ### B7 – Valuation rows point at the wrong asset table (#63)
 - **Steps to reproduce:** `valuations.asset_id` (migration 005) is a plain BIGINT matched against the per-type tables, which each have their own ID sequence. Real estate asset 1 and gold asset 1 share `asset_id = 1`, and none of these tables has a `user_id`, so a valuation cannot be tied to its owner.
 - **Root cause:** valuations were designed before the unified `assets` table existed.
-- **Fix / tests:** pending. Blocks the B5 valuation-history write and B7b.
+- **Fix / tests:** Fixed in PR #73; migration 009, ownership-scoped history API, transactional manual valuation recording, pagination, and regression tests completed.
+- **Dependency:** B7 PR #73 is pending merge into `fix/bug-bash`; B7b is now unblocked and can restore valuation history in CSV/PDF exports.
 
 ### B7b – Valuation history removed from exports (#64)
 - **Steps to reproduce:** export CSV or PDF. Only current assets are listed; the PDF says valuation history is "temporarily omitted".
 - **Root cause:** history was removed on purpose to stop the cross-user leak described in B7.
-- **Fix / tests:** pending, after B7.
+- **Fix / tests:** Pending implementation; B7 PR #73 provides the unified asset relationship required to restore export history safely.
 
 ### B8, B9, B10, B12 – No tracking issues
 Listed in #52 as Rushikesh's, but no GitHub issues exist, so title, steps to reproduce and root cause are not known to the bug log.
