@@ -6,8 +6,12 @@ BEGIN;
 ALTER TABLE valuations
     ADD COLUMN IF NOT EXISTS legacy_asset_id BIGINT;
 
+-- IMPORTANT: allow NULL before moving legacy IDs out of asset_id.
+ALTER TABLE valuations
+    ALTER COLUMN asset_id DROP NOT NULL;
+
 -- Move legacy IDs only if the new foreign key has not already
--- been installed. This prevents a rerun from moving new records.
+-- been installed. This also makes the migration safe to rerun.
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -24,10 +28,6 @@ BEGIN
     END IF;
 END $$;
 
--- Legacy records have no verified unified asset reference.
-ALTER TABLE valuations
-    ALTER COLUMN asset_id DROP NOT NULL;
-
 -- The unified assets table supports more asset types than the
 -- old per-type valuation schema.
 ALTER TABLE valuations
@@ -37,8 +37,7 @@ ALTER TABLE valuations
     DROP CONSTRAINT IF EXISTS valuations_asset_type_check;
 
 -- New records reference assets(id).
--- Asset deletion cascades to valuation rows; normal asset deletion
--- in this application is soft deletion, so history remains available.
+-- Soft-deleted assets retain their history.
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -55,7 +54,7 @@ BEGIN
     END IF;
 
     -- Every valuation must reference exactly one kind of asset ID:
-    -- either the new unified ID or the preserved legacy ID.
+    -- either the unified ID or the preserved legacy ID.
     IF NOT EXISTS (
         SELECT 1
         FROM pg_constraint
@@ -72,7 +71,6 @@ BEGIN
     END IF;
 END $$;
 
--- Index for looking up preserved legacy records.
 CREATE INDEX IF NOT EXISTS idx_valuations_legacy_asset_id
     ON valuations (legacy_asset_id);
 

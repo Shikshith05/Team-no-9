@@ -245,11 +245,6 @@ exports.getAsset = async (req, res) => {
   res.status(200).json(result.rows[0]);
 };
 
-// PUT /api/assets/:id/valuation  body { value: "8500000.00" }
-// Sets a new manual value and returns the updated asset.
-// PUT /api/assets/:id/valuation
-// Updates the asset's manual value and records its valuation history.
-// Both operations happen in the same database transaction.
 // PUT /api/assets/:id/valuation
 // Updates the asset's manual value and records its history
 // in the same database transaction.
