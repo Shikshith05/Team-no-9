@@ -1,4 +1,3 @@
-
 const pool = require("../config/db");
 const PDFDocument = require("pdfkit");
 const { errorBody } = require("../utils/errors");
@@ -9,9 +8,7 @@ async function getReportData(userId) {
   }
 
   // Export only active assets owned by the authenticated user.
-  // Valuation history is intentionally omitted until valuations.asset_id
-  // references the unified assets table safely.
-  const result = await pool.query(
+  const assetResult = await pool.query(
     `SELECT
         id,
         asset_type,
@@ -29,7 +26,35 @@ async function getReportData(userId) {
     [userId]
   );
 
-  return result.rows;
+  // Export only valuations whose unified asset belongs to this user.
+  // Legacy rows have asset_id = NULL and are intentionally excluded.
+  // The join also excludes valuations attached to soft-deleted assets.
+  const valuationResult = await pool.query(
+    `SELECT
+        v.id,
+        v.asset_id,
+        a.asset_type,
+        a.asset_name AS asset_name,
+        v.value AS valuation_value,
+        v.unit_price,
+        v.source,
+        TO_CHAR(
+          v.valued_at AT TIME ZONE 'UTC',
+          'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+        ) AS valued_at
+     FROM valuations v
+     INNER JOIN assets a ON a.id = v.asset_id
+     WHERE a.user_id = $1
+       AND a.deleted_at IS NULL
+       AND v.asset_id IS NOT NULL
+     ORDER BY v.valued_at DESC, v.id DESC`,
+    [userId]
+  );
+
+  return {
+    assets: assetResult.rows,
+    valuations: valuationResult.rows
+  };
 }
 
 function csvCell(value) {
@@ -45,8 +70,10 @@ function csvCell(value) {
 
 exports.exportCsv = async (req, res) => {
   try {
-    const assets = await getReportData(req.user.id);
+    const { assets, valuations } = await getReportData(req.user.id);
 
+    // Existing asset columns are preserved. Valuation-specific columns
+    // are appended so existing CSV consumers can still identify ASSET rows.
     const header = [
       "record_type",
       "asset_type",
@@ -54,21 +81,46 @@ exports.exportCsv = async (req, res) => {
       "name",
       "current_value",
       "purchase_date",
-      "created_at"
+      "created_at",
+      "valuation_id",
+      "valuation_value",
+      "unit_price",
+      "valuation_source",
+      "valued_at"
     ];
 
-    const rows = assets.map(asset => [
+    const assetRows = assets.map((asset) => [
       "ASSET",
       asset.asset_type,
       asset.id,
       asset.name,
       asset.current_value,
       asset.purchase_date,
-      asset.created_at
+      asset.created_at,
+      "",
+      "",
+      "",
+      "",
+      ""
     ]);
 
-    const csv = [header, ...rows]
-      .map(row => row.map(csvCell).join(","))
+    const valuationRows = valuations.map((valuation) => [
+      "VALUATION",
+      valuation.asset_type,
+      valuation.asset_id,
+      valuation.asset_name,
+      "",
+      "",
+      "",
+      valuation.id,
+      valuation.valuation_value,
+      valuation.unit_price,
+      valuation.source,
+      valuation.valued_at
+    ]);
+
+    const csv = [header, ...assetRows, ...valuationRows]
+      .map((row) => row.map(csvCell).join(","))
       .join("\r\n");
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -90,7 +142,7 @@ exports.exportCsv = async (req, res) => {
 
 exports.exportPdf = async (req, res) => {
   try {
-    const assets = await getReportData(req.user.id);
+    const { assets, valuations } = await getReportData(req.user.id);
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
@@ -122,10 +174,33 @@ exports.exportPdf = async (req, res) => {
     }
 
     doc.moveDown();
-    doc.fontSize(9).text(
-      "Valuation history is temporarily omitted pending correction " +
-      "of the asset ownership relationship."
-    );
+    doc.fontSize(15).text(`Valuation History (${valuations.length})`);
+    doc.moveDown(0.5);
+    doc.fontSize(9);
+
+    if (valuations.length === 0) {
+      doc.text("No valuation history available.");
+    } else {
+      for (const valuation of valuations) {
+        doc.text(
+          `${valuation.asset_type} | Asset ID: ${valuation.asset_id} | ` +
+          `${valuation.asset_name || ""}`
+        );
+        doc.text(
+          `Valuation ID: ${valuation.id} | ` +
+          `Value: INR ${valuation.valuation_value}`
+        );
+        doc.text(
+          `Source: ${valuation.source} | Valued at: ${valuation.valued_at}`
+        );
+
+        if (valuation.unit_price != null) {
+          doc.text(`Unit price: INR ${valuation.unit_price}`);
+        }
+
+        doc.moveDown(0.4);
+      }
+    }
 
     doc.end();
   } catch (error) {
