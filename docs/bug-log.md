@@ -92,7 +92,7 @@ Listed in #52 as Rushikesh's, but no GitHub issues exist, so title, steps to rep
 ### B13 – Export date formats (#65)
 - **Steps to reproduce:** risk of JavaScript default date strings (`Fri Oct 30 2026 ...`) in CSV/PDF.
 - **Root cause / current state:** `reportController.js` on `main` already formats `purchase_date` as `YYYY-MM-DD` and `created_at` as ISO 8601 UTC in SQL, as the issue's own note says. What remains is verifying it and adding the timezone tests the issue asks for.
-- **Fix / tests:** pending.
+- - **Fix / tests:** Existing SQL date formatting retained. Added CSV and PDF timezone regression tests in `backend/tests/reports.test.js`, verifying date-only purchase dates and ISO 8601 UTC timestamps at a timezone boundary. Full backend suite: 95 tests passed.
 
 ### B14 – No backend tests, CI only checks syntax (#51, duplicate #53) – Fixed
 - **Steps to reproduce (before):** `cd backend && npm test` exits 1 ("no test specified"); `.github/workflows/main.yml` only runs `node --check` for the backend and never runs the frontend's Vitest suite.
