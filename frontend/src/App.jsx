@@ -1,4 +1,4 @@
-// Screens are chosen from the URL hash (#/, #/login, ...); see lib/router.js.
+
 import { Fragment, useEffect, useRef } from 'react';
 import AppShell from './components/AppShell.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -6,12 +6,14 @@ import AssetsPage from './pages/AssetsPage.jsx';
 import ValuationPage from './pages/ValuationPage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
+import RegisterPage from './pages/RegisterPage.jsx';
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import PlaceholderPage from './pages/PlaceholderPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
-import { matchPath, useHashLocation } from './lib/router.js';
 import ReportsPage from './pages/ReportsPage.jsx';
+import { matchPath, useHashLocation } from './lib/router.js';
+
 const ROUTES = [
   { path: '/', title: 'Dashboard', nav: 'Dashboard', render: () => <Dashboard /> },
   { path: '/assets', title: 'Assets', nav: 'Assets', render: () => <AssetsPage /> },
@@ -30,6 +32,7 @@ const ROUTES = [
   { path: '/reports', title: 'Reports', nav: 'Reports', render: () => <ReportsPage /> },
   { path: '/settings', title: 'Settings', nav: 'Settings', render: () => <PlaceholderPage title="Settings" /> },
   { path: '/login', title: 'Log in', layout: 'auth', render: () => <LoginPage /> },
+  { path: '/register', title: 'Register', layout: 'auth', render: () => <RegisterPage /> },
   { path: '/forgot-password', title: 'Reset your password', layout: 'auth', render: () => <ForgotPasswordPage /> },
   {
     path: '/reset-password',
@@ -43,8 +46,18 @@ const NOT_FOUND = { title: 'Page not found', render: () => <NotFoundPage /> };
 
 export default function App() {
   const location = useHashLocation();
+  const isAuthenticated = Boolean(localStorage.getItem('token'));
+
+  const isPublicPath = [
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+  ].includes(location.path);
+
   let route = NOT_FOUND;
   let params = {};
+
   for (const candidate of ROUTES) {
     const match = matchPath(candidate.path, location.segments);
     if (match) {
@@ -55,26 +68,41 @@ export default function App() {
   }
 
   useEffect(() => {
-    document.title = `${route.title} · Personal Wealth Management`;
-  }, [route.title]);
+    if (!isAuthenticated && !isPublicPath) {
+      window.location.hash = '#/login';
+    } else if (isAuthenticated && location.path === '/login') {
+      window.location.hash = '#/';
+    }
+  }, [isAuthenticated, isPublicPath, location.path]);
 
-  // After moving to another screen, start at the top and put focus on its heading
-  // so keyboard and screen-reader users know the page changed.
+  const displayRoute =
+    !isAuthenticated && !isPublicPath
+      ? ROUTES.find((item) => item.path === '/login')
+      : route;
+
+  useEffect(() => {
+    document.title = `${displayRoute.title} · Personal Wealth Management`;
+  }, [displayRoute.title]);
+
   const firstRender = useRef(true);
+
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;
       return;
     }
+
     window.scrollTo(0, 0);
     document.querySelector('main h1')?.focus();
   }, [location.path]);
 
-  // A new path or query (e.g. another reset token) gives the screen fresh state.
   const screenKey = `${location.path}?${location.query}`;
+
   return (
-    <AppShell variant={route.layout} current={route.nav}>
-      <Fragment key={screenKey}>{route.render({ params, query: location.query })}</Fragment>
+    <AppShell variant={displayRoute.layout} current={displayRoute.nav}>
+      <Fragment key={screenKey}>
+        {displayRoute.render({ params, query: location.query })}
+      </Fragment>
     </AppShell>
   );
 }

@@ -13,6 +13,7 @@ const authRoutes = require("./routes/authRoutes");
 const assetRoutes = require("./routes/assetRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const valuationRoutes = require("./routes/valuationRoutes");
+const alertRoutes = require("./routes/alertRoutes");
 const { startRefreshScheduler } = require("./services/refreshScheduler");
 const { apiNotFound, errorHandler } = require("./utils/errors");
 
@@ -28,6 +29,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/valuations", valuationRoutes);
+app.use("/api/alerts", alertRoutes);
 // Health endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -38,8 +40,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Unknown API routes, then the central error handler: every error leaves
-// the API in the SAD format {"error":{"code","message","fields"}} (B6, #55).
+// Unknown API routes, then the central error handler
 app.use("/api", apiNotFound);
 app.use(errorHandler);
 
