@@ -1,11 +1,27 @@
 ﻿const pool = require("../config/db");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { validateRegistration } = require("../utils/validation");
 const { accountLocked, conflict, unauthorized, validationError } = require("../utils/errors");
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_TIME_MS = 15 * 60 * 1000;
+const DEFAULT_TOKEN_LIFETIME = "24h";
+
+// PRJ-SR-003: configurable lifetime, default 24h (B17). jsonwebtoken reads a
+// string of digits as milliseconds, so "3600" is turned into 3600 seconds here.
+function tokenLifetime() {
+  const value = (process.env.JWT_EXPIRES_IN || "").trim() || DEFAULT_TOKEN_LIFETIME;
+  return /^\d+$/.test(value) ? Number(value) : value;
+}
+
+// PRJ-SR-005: lockouts go to the server log. Only the user id and times: never
+// the email, the password or a token. (SAD 3.9 also asks for an audit_log table,
+// which does not exist yet.)
+function logSecurityEvent(event, details) {
+  console.warn(JSON.stringify({ event, at: new Date().toISOString(), ...details }));
+}
 
 // B3 (#56): "User@Example.com " and "user@example.com" are the same account.
 // Emails are trimmed and lowercased before they are stored or looked up;
@@ -66,19 +82,29 @@ exports.login = async (req, res) => {
 
   if (user.lock_until && new Date(user.lock_until) > new Date()) {
     const waitMinutes = Math.ceil((new Date(user.lock_until) - Date.now()) / (60 * 1000));
-    throw accountLocked(`Account locked after 5 failed attempts. Please retry in ${waitMinutes} minutes.`);
+    logSecurityEvent("LOGIN_BLOCKED_ACCOUNT_LOCKED", { userId: user.id, lockedUntil: new Date(user.lock_until).toISOString() });
+    throw accountLocked(
+      `Account locked after 5 failed attempts. Please retry in ${waitMinutes} minute${waitMinutes === 1 ? "" : "s"}.`
+    );
   }
 
   const isMatch = await bcrypt.compare(password, user.password);
 
   if (!isMatch) {
-    const failedAttempts = (user.failed_login_attempts || 0) + 1;
+    // B16: an expired lock starts a new count. Without this the old count of 5 was
+    // still there, so one wrong password locked the account for 15 more minutes.
+    const previousAttempts = user.lock_until ? 0 : user.failed_login_attempts || 0;
+    const failedAttempts = previousAttempts + 1;
     const lockUntil = failedAttempts >= MAX_FAILED_ATTEMPTS ? new Date(Date.now() + LOCK_TIME_MS) : null;
 
     await pool.query(
       "UPDATE users SET failed_login_attempts = $1, lock_until = $2 WHERE id = $3",
       [failedAttempts, lockUntil, user.id]
     );
+
+    if (lockUntil) {
+      logSecurityEvent("ACCOUNT_LOCKED", { userId: user.id, lockedUntil: lockUntil.toISOString() });
+    }
 
     throw unauthorized("Invalid email or password.");
   }
@@ -96,7 +122,9 @@ exports.login = async (req, res) => {
   const token = jwt.sign(
     { id: user.id, email: user.email },
     process.env.JWT_SECRET,
-    { expiresIn: "1h" }
+    // B21: jwtid (SAD 3.9) makes every token unique. Without it, logging in again
+    // in the same second as a logout gave back the identical, revoked token.
+    { expiresIn: tokenLifetime(), jwtid: crypto.randomUUID() }
   );
 
   res.status(200).json({
