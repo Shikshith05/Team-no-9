@@ -962,3 +962,30 @@ a {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* Price alerts on the dashboard (B12). */
+.alerts-panel {
+  margin-top: var(--gutter);
+}
+
+.alerts-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.alerts-subheading {
+  margin: 16px 0 8px;
+  font-size: 1rem;
+}
+
+.alerts-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+@media (min-width: 768px) {
+  .alerts-form {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  }
+}
