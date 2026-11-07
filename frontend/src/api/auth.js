@@ -2,6 +2,7 @@
 import { apiFetch } from './http.js';
 import { USE_MOCK } from './mock.js';
 import { mockForgotPassword, mockResetPassword } from './mockAuth.js';
+import { expireSession, hasSession, saveSession } from './session.js';
 
 export async function register(name, email, password) {
   if (USE_MOCK) {
@@ -16,7 +17,7 @@ export async function register(name, email, password) {
 
 export async function login(email, password) {
   if (USE_MOCK) {
-    throw new Error('Real login requires VITE_USE_MOCK_API=false.');
+    throw new Error('Login needs the real API. Unset VITE_USE_MOCK_API.');
   }
 
   const result = await apiFetch('/api/auth/login', {
@@ -28,23 +29,23 @@ export async function login(email, password) {
     throw new Error('Login response did not contain a valid token and user.');
   }
 
-  localStorage.setItem('token', result.token);
-  localStorage.setItem('user', JSON.stringify(result.user));
+  saveSession(result.token, result.user);
 
   return result;
 }
 
+// PRJ-SR-003: the server revokes the token. The user is logged out of this
+// browser even if that call fails (for example, offline); the token then simply
+// expires on its own.
 export async function logout() {
-  const token = localStorage.getItem('token');
-
   try {
-    if (token) {
+    if (hasSession()) {
       await apiFetch('/api/auth/logout', { method: 'POST' });
     }
+  } catch (error) {
+    console.warn('Logout could not reach the server:', error.message);
   } finally {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.hash = '#/login';
+    expireSession();
   }
 }
 

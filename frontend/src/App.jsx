@@ -12,6 +12,8 @@ import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import PlaceholderPage from './pages/PlaceholderPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
+import { USE_MOCK } from './api/mock.js';
+import { hasSession } from './api/session.js';
 import { matchPath, useHashLocation } from './lib/router.js';
 
 const ROUTES = [
@@ -46,7 +48,7 @@ const NOT_FOUND = { title: 'Page not found', render: () => <NotFoundPage /> };
 
 export default function App() {
   const location = useHashLocation();
-  const isAuthenticated = Boolean(localStorage.getItem('token'));
+  const isAuthenticated = hasSession();
 
   const isPublicPath = [
     '/login',
@@ -67,18 +69,19 @@ export default function App() {
     }
   }
 
+  const mustLogIn = !USE_MOCK && !isAuthenticated && !isPublicPath;
+
   useEffect(() => {
-    if (!isAuthenticated && !isPublicPath) {
+    if (mustLogIn) {
       window.location.hash = '#/login';
-    } else if (isAuthenticated && location.path === '/login') {
+    } else if (!USE_MOCK && isAuthenticated && location.path === '/login') {
       window.location.hash = '#/';
     }
-  }, [isAuthenticated, isPublicPath, location.path]);
+  }, [mustLogIn, isAuthenticated, location.path]);
 
-  const displayRoute =
-    !isAuthenticated && !isPublicPath
-      ? ROUTES.find((item) => item.path === '/login')
-      : route;
+  const displayRoute = mustLogIn
+    ? ROUTES.find((item) => item.path === '/login')
+    : route;
 
   useEffect(() => {
     document.title = `${displayRoute.title} · Personal Wealth Management`;

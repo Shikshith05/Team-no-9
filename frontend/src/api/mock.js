@@ -1,5 +1,6 @@
-// Helpers shared by the mock API branches. Mock data is on by default until the
-// backend endpoints exist; set VITE_USE_MOCK_API=false to use the real API.
+// Helpers shared by the mock API branches. The app uses the real API; only
+// VITE_USE_MOCK_API=true switches to mock data (the Playwright suite in e2e/ and
+// screen previews). In mock mode there is no login, so App skips its auth guard.
 //
 // Preview other states with ?mock=... in the URL (before any #):
 //   ?mock=stale        one stock price flagged stale
@@ -15,7 +16,7 @@
 
 import { ApiError } from './http.js';
 
-export const USE_MOCK = false;
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK_API === 'true';
 
 export function mockMode() {
   return new URLSearchParams(window.location.search).get('mock');
