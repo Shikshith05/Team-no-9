@@ -1,218 +1,64 @@
-
-import React, { useState, useEffect } from 'react';
-import { apiFetch } from '../api/http.js';
+// Dashboard page: net worth total (PWM-F-030), asset allocation (PWM-F-031) and
+// the historical trend (PWM-F-032), then the user's price alerts (B12). The
+// portfolio cards reload when assets change and when the tab becomes visible
+// again (see useApiResource).
+import { useState } from 'react';
+import { fetchDashboard, fetchTrend } from '../api/dashboard.js';
+import { USE_MOCK } from '../api/mock.js';
+import { useApiResource } from '../lib/useApiResource.js';
+import { DEFAULT_RANGE } from '../lib/trend.js';
+import AlertsPanel from '../components/AlertsPanel.jsx';
+import NetWorthCard from '../components/NetWorthCard.jsx';
+import AllocationChart from '../components/AllocationChart.jsx';
+import TrendChart from '../components/TrendChart.jsx';
+import SessionExpired from '../components/SessionExpired.jsx';
 
 export default function Dashboard() {
-  const [alertLogs, setAlertLogs] = useState([]);
-  const [savedAlerts, setSavedAlerts] = useState([]);
-  const [assetType, setAssetType] = useState('stock');
-  const [condition, setCondition] = useState('ABOVE');
-  const [targetPrice, setTargetPrice] = useState('');
-  const [loadingAlerts, setLoadingAlerts] = useState(true);
-  const [savingAlert, setSavingAlert] = useState(false);
-  const [error, setError] = useState('');
-
-  // Load saved alerts belonging to the logged-in user.
-  useEffect(() => {
-    let active = true;
-
-    const loadAlerts = async () => {
-      try {
-        const result = await apiFetch('/api/alerts');
-
-        if (active) {
-          setSavedAlerts(result.data || []);
-        }
-      } catch (err) {
-        if (active) {
-          setError(err.message || 'Could not load saved alerts. Please log in.');
-        }
-      } finally {
-        if (active) {
-          setLoadingAlerts(false);
-        }
-      }
-    };
-
-    loadAlerts();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // Save alert permanently for the logged-in user.
-  const handleSaveAlert = async () => {
-    setError('');
-
-    const price = Number(targetPrice);
-
-    if (!targetPrice || !Number.isFinite(price) || price <= 0) {
-      setError('Enter a valid target price greater than zero.');
-      return;
-    }
-
-    setSavingAlert(true);
-
-    try {
-      const result = await apiFetch('/api/alerts', {
-        method: 'POST',
-        body: {
-          assetType,
-          condition,
-          targetPrice: price
-        }
-      });
-
-      setSavedAlerts((prev) => [result.data, ...prev]);
-
-      setAlertLogs((prev) => [
-        ...prev,
-        `Saved: ${assetType} ${condition} $${price}`
-      ]);
-
-      setTargetPrice('');
-    } catch (err) {
-      setError(err.message || 'Could not save alert.');
-    } finally {
-      setSavingAlert(false);
-    }
-  };
+  const summary = useApiResource(fetchDashboard);
+  const [range, setRange] = useState(DEFAULT_RANGE);
+  const trend = useApiResource(fetchTrend, range);
+  const unauthorized = summary.status === 'unauthorized' || trend.status === 'unauthorized';
 
   return (
-    <div
-      style={{
-        padding: '20px',
-        maxWidth: '1000px',
-        margin: '0 auto',
-        fontFamily: 'sans-serif'
-      }}
-    >
-      <h2>Financial Wealth Dashboard</h2>
+    <main className="page">
+      <header className="page-header">
+        <h1 tabIndex={-1}>Dashboard</h1>
+        <p className="muted">Your wealth across real estate, gold, stocks and cash.</p>
+      </header>
 
-      <div
-        style={{
-          padding: '24px',
-          border: '1px solid #d0d7de',
-          borderRadius: '8px',
-          background: '#f6f8fa',
-          marginBottom: '30px'
-        }}
-      >
-        <h3>Configure Custom Valuation Alert Boundaries</h3>
+      {unauthorized && <SessionExpired />}
 
-        <div
-          style={{
-            display: 'flex',
-            gap: '10px',
-            flexWrap: 'wrap',
-            alignItems: 'center'
-          }}
-        >
-          <select
-            value={assetType}
-            onChange={(e) => setAssetType(e.target.value)}
-            style={{ padding: '8px', borderRadius: '4px' }}
-          >
-            <option value="stock">Stock Portfolio</option>
-            <option value="gold">Gold Holdings</option>
-          </select>
+      {!unauthorized && summary.status === 'loading' && (
+        <div className="dashboard-grid" aria-busy="true" aria-label="Loading dashboard">
+          <div className="card skeleton" />
+          <div className="card skeleton skeleton-tall" />
+        </div>
+      )}
 
-          <select
-            value={condition}
-            onChange={(e) => setCondition(e.target.value)}
-            style={{ padding: '8px', borderRadius: '4px' }}
-          >
-            <option value="ABOVE">Rises Above (&gt;=)</option>
-            <option value="BELOW">Drops Below (&lt;=)</option>
-          </select>
-
-          <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={targetPrice}
-            onChange={(e) => setTargetPrice(e.target.value)}
-            placeholder="Target Trigger Value"
-            style={{
-              padding: '8px',
-              border: '1px solid #d0d7de',
-              borderRadius: '4px'
-            }}
-          />
-
-          <button
-            type="button"
-            onClick={handleSaveAlert}
-            disabled={savingAlert}
-            style={{
-              padding: '8px 16px',
-              background: '#1f883d',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold'
-            }}
-          >
-            {savingAlert ? 'Saving...' : 'Save Threshold Rule'}
+      {!unauthorized && summary.status === 'error' && (
+        <div className="card error-card" role="alert">
+          <p>We couldn't load your dashboard. {summary.error.message}</p>
+          <button type="button" className="button" onClick={summary.retry}>
+            Try again
           </button>
         </div>
+      )}
 
-        {error && (
-          <p role="alert" style={{ color: '#cf222e' }}>
-            {error}
-          </p>
-        )}
-      </div>
-
-      <div style={{ marginBottom: '30px' }}>
-        <h3>Your Saved Alerts</h3>
-
-        {loadingAlerts ? (
-          <p>Loading saved alerts...</p>
-        ) : savedAlerts.length === 0 ? (
-          <p>No saved alerts yet.</p>
-        ) : (
-          <ul>
-            {savedAlerts.map((alert) => (
-              <li key={alert.id}>
-                {alert.assetType.toUpperCase()} — {alert.condition}{' '}
-                ${Number(alert.targetPrice).toFixed(2)}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div>
-        <h4>System Activity Logs</h4>
-
-        <div
-          style={{
-            background: '#24292f',
-            color: '#f6f8fa',
-            padding: '15px',
-            borderRadius: '6px',
-            height: '140px',
-            overflowY: 'auto',
-            fontFamily: 'monospace',
-            fontSize: '13px'
-          }}
-        >
-          {alertLogs.length === 0 ? (
-            <div style={{ color: '#8c959f' }}>
-              System initialized. Configure your valuation alerts.
-            </div>
-          ) : (
-            alertLogs.map((log, index) => (
-              <div key={index} style={{ marginBottom: '4px' }}>
-                {log}
-              </div>
-            ))
-          )}
+      {!unauthorized && summary.status === 'ready' && (
+        <div className="dashboard-grid">
+          <NetWorthCard
+            netWorth={summary.data.netWorth}
+            asOf={summary.data.asOf}
+            hasStaleData={summary.data.hasStaleData}
+            classCount={summary.data.allocation.length}
+          />
+          <AllocationChart allocation={summary.data.allocation} netWorth={summary.data.netWorth} />
+          <TrendChart range={range} onRangeChange={setRange} trend={trend} />
         </div>
-      </div>
-    </div>
+      )}
+
+      {/* The alerts API has no mock, and the mock screens are about the portfolio. */}
+      {!unauthorized && !USE_MOCK && <AlertsPanel />}
+    </main>
   );
 }

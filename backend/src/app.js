@@ -12,6 +12,7 @@ const PORT = Number(process.env.PORT || 5000);
 
 const authRoutes = require("./routes/authRoutes");
 const assetRoutes = require("./routes/assetRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const valuationRoutes = require("./routes/valuationRoutes");
 const alertRoutes = require("./routes/alertRoutes");
@@ -34,6 +35,7 @@ app.use(express.json());
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/assets", assetRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/valuations", valuationRoutes);
 app.use("/api/alerts", alertRoutes);
