@@ -14,4 +14,11 @@ const pool = new Pool({
   database: process.env.DEV_POSTGRES_DB || process.env.POSTGRES_DB
 });
 
+// PWM-NF-003: PostgreSQL restarting or dropping an idle connection must not end the
+// API process. Node treats an "error" event with no listener as fatal. The pool
+// opens a new connection for the next query, and until then requests get a 500 or 503.
+pool.on("error", (error) => {
+  console.error("Idle database connection failed:", error.message);
+});
+
 module.exports = pool;
