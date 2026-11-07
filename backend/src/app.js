@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const path = require("path");
 
 require("dotenv").config({
@@ -17,6 +18,11 @@ const alertRoutes = require("./routes/alertRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const { startRefreshScheduler } = require("./services/refreshScheduler");
 const { apiNotFound, errorHandler } = require("./utils/errors");
+const { jwtSecretProblem } = require("./utils/jwtSecret");
+
+// B18 (TC-Sec-06, SAD 3.9): security headers, and no framework fingerprint.
+app.disable("x-powered-by");
+app.use(helmet());
 
 app.use(cors({
   origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
@@ -47,6 +53,12 @@ app.use("/api", apiNotFound);
 app.use(errorHandler);
 
 if (require.main === module) {
+  const secretProblem = jwtSecretProblem();
+  if (secretProblem) {
+    console.error(secretProblem);
+    process.exit(1);
+  }
+
   app.listen(PORT, () => {
     console.log(`Backend listening on port ${PORT}`);
 
