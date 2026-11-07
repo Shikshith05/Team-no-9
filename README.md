@@ -178,3 +178,4 @@ All settings come from environment variables, and secrets never go in the reposi
 | Login or other requests answer 500 and the log says a relation does not exist | Migrations were not applied. Run step 3 again. |
 | Tests stop with `POSTGRES_DB must be a dedicated test database` | Use a name ending in `_test`. |
 | Docker: `required variable ... is missing a value` | Fill in that value in `.env`. |
+| Docker: the gateway keeps restarting and its log says `cannot load certificate` | Create the certificate (step 2), then run `docker compose up -d --force-recreate gateway`. |

@@ -3,47 +3,56 @@
 Bug bash for the Personal Wealth Management app. Tracking issue: [#52](https://github.com/Shikshith05/Team-no-9/issues/52).
 Integration branch: `fix/bug-bash`. Each bug has its own issue, owner and fix branch, and every fix needs a test (#52).
 
-Owners (from #52): Shikshith: B3, B4, B5, B6, B14, bug log; Sateesh: B1, B2, B11, B15; Greeshma: B7, B7b, B13; Rushikesh: B8, B9, B10, B12.
+Owners: Shikshith: B1, B2, B3, B4, B5, B6, B11, B14, B15, B16–B21, bug log; Greeshma: B7, B7b, B13; Rushikesh: B8, B9, B10, B12. B1, B2, B11 and B15 were first assigned to Sateesh in #52.
 
-Status as of 2026-11-06.
+Status as of 2026-11-07.
 
 ## Summary
 
 | Bug | Issue | Title | Assignee | Status |
 |---|---|---|---|---|
-| B1 | [#59](https://github.com/Shikshith05/Team-no-9/issues/59) | Connect login page to /api/auth/login | Sateesh5298 | Open – assigned to Sateesh |
-| B2 | [#60](https://github.com/Shikshith05/Team-no-9/issues/60) | Resolve frontend and backend authentication mismatch | Sateesh5298 | Open – assigned to Sateesh |
-| B3 | [#56](https://github.com/Shikshith05/Team-no-9/issues/56) | Normalize email addresses to prevent case-sensitive duplicate accounts | Shikshith05 | Fixed in this branch |
-| B4 | [#57](https://github.com/Shikshith05/Team-no-9/issues/57) | Add email format and password strength validation during registration | Shikshith05 | Fixed in this branch |
-| B5 | [#54](https://github.com/Shikshith05/Team-no-9/issues/54) | Implement missing asset APIs | Shikshith05 | Fixed in this branch; manual valuation-history write implemented by B7 PR #73 |
-| B6 | [#55](https://github.com/Shikshith05/Team-no-9/issues/55) | Standardize API error responses and prevent database error leakage | Shikshith05 | Fixed in this branch |
-| B7 | [#63](https://github.com/Shikshith05/Team-no-9/issues/63) | Fix valuation asset relationship and implement valuation history API | GREESHMA-K77 | Fixed in PR #73 – pending merge |
-| B7b | [#64](https://github.com/Shikshith05/Team-no-9/issues/64) | Restore secure valuation history in CSV and PDF exports | GREESHMA-K77 | Open – assigned to Greeshma (unblocked by B7 PR #73) |
-| B8 | none | Not recorded (no GitHub issue yet) | Rushikesh (per #52) | Open – no tracking issue |
-| B9 | none | Not recorded (no GitHub issue yet) | Rushikesh (per #52) | Open – no tracking issue |
-| B10 | none | Not recorded (no GitHub issue yet) | Rushikesh (per #52) | Open – no tracking issue |
-| B11 | [#61](https://github.com/Shikshith05/Team-no-9/issues/61) | Fix dashboard endpoint mismatch between frontend and backend | Sateesh5298 | Open – assigned to Sateesh |
-| B12 | none | Not recorded (no GitHub issue yet) | Rushikesh (per #52) | Open – no tracking issue |
-| B13 | [#65](https://github.com/Shikshith05/Team-no-9/issues/65) | Standardize date formatting in CSV and PDF exports | GREESHMA-K77 | Open – assigned to Greeshma |
-| B14 | [#51](https://github.com/Shikshith05/Team-no-9/issues/51) (duplicate: [#53](https://github.com/Shikshith05/Team-no-9/issues/53)) | Backend has no tests and CI only runs a syntax check | Shikshith05 | Fixed in this branch |
-| B15 | [#62](https://github.com/Shikshith05/Team-no-9/issues/62) | Fix missing Dockerfiles, Nginx configuration and certificate references | Sateesh5298 | Open – assigned to Sateesh |
+| B1 | [#59](https://github.com/Shikshith05/Team-no-9/issues/59) | Connect login page to /api/auth/login | Shikshith05 | Fixed in PR #79 – pending merge |
+| B2 | [#60](https://github.com/Shikshith05/Team-no-9/issues/60) | Resolve frontend and backend authentication mismatch | Shikshith05 | Fixed in PR #79 – pending merge |
+| B3 | [#56](https://github.com/Shikshith05/Team-no-9/issues/56) | Normalize email addresses to prevent case-sensitive duplicate accounts | Shikshith05 | Fixed |
+| B4 | [#57](https://github.com/Shikshith05/Team-no-9/issues/57) | Add email format and password strength validation during registration | Shikshith05 | Fixed |
+| B5 | [#54](https://github.com/Shikshith05/Team-no-9/issues/54) | Implement missing asset APIs | Shikshith05 | Fixed; manual valuation-history write implemented by B7 PR #73 |
+| B6 | [#55](https://github.com/Shikshith05/Team-no-9/issues/55) | Standardize API error responses and prevent database error leakage | Shikshith05 | Fixed |
+| B7 | [#63](https://github.com/Shikshith05/Team-no-9/issues/63) | Fix valuation asset relationship and implement valuation history API | GREESHMA-K77 | Fixed – merged via PR #73 |
+| B7b | [#64](https://github.com/Shikshith05/Team-no-9/issues/64) | Restore secure valuation history in CSV and PDF exports | GREESHMA-K77 | Fixed – merged via PR #77 |
+| B8 | [#66](https://github.com/Shikshith05/Team-no-9/issues/66) | Prevent one failed ticker from stopping the entire stock refresh | Rushikesh9742 | Fixed – merged via PR #72 |
+| B9 | [#67](https://github.com/Shikshith05/Team-no-9/issues/67) | Correct market-price cache semantics and persist valuation history during refresh | Rushikesh9742 | Open – PR #76 |
+| B10 | [#68](https://github.com/Shikshith05/Team-no-9/issues/68) | Remove obsolete frontend valuation worker and duplicate root-level services | Rushikesh9742 | Fixed – merged via PR #71 |
+| B11 | [#61](https://github.com/Shikshith05/Team-no-9/issues/61) | Fix dashboard endpoint mismatch between frontend and backend | Shikshith05 | Fixed in PR #80 – pending merge |
+| B12 | [#69](https://github.com/Shikshith05/Team-no-9/issues/69) | Persist dashboard alerts per user using backend storage | Rushikesh9742 | Fixed – merged via PR #74 |
+| B13 | [#65](https://github.com/Shikshith05/Team-no-9/issues/65) | Standardize date formatting in CSV and PDF exports | GREESHMA-K77 | Open – PR #78 |
+| B14 | [#51](https://github.com/Shikshith05/Team-no-9/issues/51) (duplicate: [#53](https://github.com/Shikshith05/Team-no-9/issues/53)) | Backend has no tests and CI only runs a syntax check | Shikshith05 | Fixed |
+| B15 | [#62](https://github.com/Shikshith05/Team-no-9/issues/62) | Fix missing Dockerfiles, Nginx configuration and certificate references | Shikshith05 | Fixed in PR #82 – pending merge |
+| B16 | none (audit) | Lockout re-locks after it expires | Shikshith05 | Fixed in PR #81 – pending merge |
+| B17 | none (audit) | JWT lifetime hard-coded to 1h | Shikshith05 | Fixed in PR #81 – pending merge |
+| B18 | none (audit) | No security headers, X-Powered-By exposed | Shikshith05 | Fixed in PR #81 – pending merge |
+| B19 | none (audit) | `.env.example` missing JWT and CORS settings | Shikshith05 | Fixed in PR #81 – pending merge |
+| B20 | none (audit) | README has no run instructions | Shikshith05 | Fixed in PR #81 – pending merge |
+| B21 | none (audit) | Logging in right after logout gives a revoked token | Shikshith05 | Fixed in PR #81 – pending merge |
 
-Open items that block closing #58 (its acceptance criteria say every bug must have its own issue and no critical bug may remain open):
-- B8, B9, B10 and B12 have no GitHub issue, so their titles, steps and root causes are not recorded here. Rushikesh needs to create them.
-- The B7 cross-user valuation exposure is fixed in PR #73, pending merge. B7b is now unblocked and can restore valuation history in exports.
-- B14 has two issues (#51 and #53). The fix references both; #53 can be closed as a duplicate.
+Open items that block closing #58 (its acceptance criteria say no critical bug may remain open, and the final regression must be repeated):
+- B9 (#67) and B13 (#65) are still open, in PRs #76 and #78.
+- PRs #79, #80, #81 and #82 are waiting for review and merge.
+- B16–B21 came from the audit and have no GitHub issues. They are tracked here and in PR #81. Issues can be created if #58 requires one for each bug.
+- The final regression in #58 must be repeated on `fix/bug-bash` once all of these are merged.
 
 ## Details
 
-### B1 – Login page not connected (#59)
-- **Steps to reproduce:** open `#/login`, enter any email and password, press Log in. The page shows "Logging in isn't connected yet" and no request is sent.
-- **Root cause:** `frontend/src/pages/LoginPage.jsx` is still the Sprint 2 placeholder; its submit handler never calls `POST /api/auth/login`.
-- **Fix / tests:** pending (depends on B2).
+### B1 – Login page not connected (#59) – Fixed in PR #79
+- **Steps to reproduce (before):** open `#/login`, enter any email and password, press Log in. The page shows "Logging in isn't connected yet" and no request is sent.
+- **Root cause:** `frontend/src/pages/LoginPage.jsx` was still the Sprint 2 placeholder; its submit handler never called `POST /api/auth/login`.
+- **Fix:** connected in PR #74. PR #79 finishes it: login and register show the backend's messages (401 invalid credentials, 423 locked with the retry time, 400 and 409 on the field they concern).
+- **Tests:** `frontend/src/pages/authPages.test.jsx`, `frontend/src/api/auth.test.js`, and the real-backend journey `frontend/e2e-real/journey.spec.js`.
 
-### B2 – Frontend and backend authentication mismatch (#60)
-- **Steps to reproduce:** log in through the API, then open Reports and export. Asset screens send a cookie (`credentials: 'include'` in `frontend/src/api/http.js`); the backend only reads `Authorization: Bearer` (`authMiddleware.js`); `ReportsPage.jsx` reads a `token` from `localStorage` that no login flow ever writes.
+### B2 – Frontend and backend authentication mismatch (#60) – Fixed in PR #79
+- **Steps to reproduce (before):** log in through the API, then open Reports and export. Asset screens send a cookie (`credentials: 'include'` in `frontend/src/api/http.js`); the backend only reads `Authorization: Bearer` (`authMiddleware.js`); `ReportsPage.jsx` reads a `token` from `localStorage` that no login flow ever writes.
 - **Root cause:** no agreed authentication method; each side implemented a different one.
-- **Fix / tests:** pending. Needs the team decision recorded in #52 (Bearer token vs secure cookie).
+- **Fix:** the team chose a Bearer token in `localStorage` under the single key `token`, a deviation from SAD 4.3.1 recorded in `docs/auth-decision.md`. `frontend/src/api/session.js` is now the only code touching the stored session. `http.js` sends the token on every call, including exports, and any 401 clears the session and goes to `#/login`.
+- **Tests:** `frontend/src/api/http.test.js`, `frontend/src/pages/authPages.test.jsx`, `frontend/e2e-real/journey.spec.js`.
 
 ### B3 – Case-sensitive duplicate accounts (#56) – Fixed
 - **Steps to reproduce (before):** register `User@Example.com`, then register `user@example.com`. Both succeed and create two accounts; logging in as `USER@example.com` fails.
@@ -61,7 +70,7 @@ Open items that block closing #58 (its acceptance criteria say every bug must ha
 - **Steps to reproduce (before):** with a valid token, `GET /api/assets`, `GET /api/assets/1` and `PUT /api/assets/1/valuation` return Express's HTML 404. The Assets, valuation and history screens can only run on mock data.
 - **Root cause:** only create, update, delete and dashboard-summary were implemented.
 - **Fix:** list (type filter, page/limit, `{items,page,limit,total}`), get-one and manual valuation on the `assets` table, all scoped to the caller and to non-deleted rows, in the shapes of `frontend/src/api/assets.js`. Stock and gold are refused with 422 `MARKET_VALUED`. Another user's asset is 404.
-- **Valuation history:** Manual valuation updates now write a MANUAL row to `valuations` in the same transaction (implemented in B7 PR #73, pending merge). `location` and `purchaseValue` remain null because the unified table has no such columns.
+- **Valuation history:** Manual valuation updates now write a MANUAL row to `valuations` in the same transaction (implemented in B7 PR #73). `location` and `purchaseValue` remain null because the unified table has no such columns.
 - **Tests:** `backend/tests/assetEndpoints.test.js`.
 
 ### B6 – Inconsistent errors and database error leakage (#55) – Fixed
@@ -70,24 +79,42 @@ Open items that block closing #58 (its acceptance criteria say every bug must ha
 - **Fix:** `backend/src/utils/errors.js` (AppError, central `errorHandler`, JSON 404 for unknown `/api` routes). Every error is `{"error":{"code","message","fields"}}`, which `frontend/src/api/http.js` reads. Codes: VALIDATION_ERROR 400, UNAUTHORIZED 401, ACCOUNT_LOCKED 423, NOT_FOUND 404, CONFLICT 409, MARKET_VALUED 422, INTERNAL_ERROR 500 (generic message; details only in the server log). Asset input is validated with field errors. Wrong password and unknown email now return identical 401 bodies (the old `remainingAttempts` field revealed which emails exist).
 - **Tests:** `backend/tests/errorFormat.test.js`, plus the shape checks in the other suites.
 
-### B7 – Valuation rows point at the wrong asset table (#63)
-- **Steps to reproduce:** `valuations.asset_id` (migration 005) is a plain BIGINT matched against the per-type tables, which each have their own ID sequence. Real estate asset 1 and gold asset 1 share `asset_id = 1`, and none of these tables has a `user_id`, so a valuation cannot be tied to its owner.
+### B7 – Valuation rows point at the wrong asset table (#63) – Fixed
+- **Steps to reproduce (before):** `valuations.asset_id` (migration 005) is a plain BIGINT matched against the per-type tables, which each have their own ID sequence. Real estate asset 1 and gold asset 1 share `asset_id = 1`, and none of these tables has a `user_id`, so a valuation cannot be tied to its owner.
 - **Root cause:** valuations were designed before the unified `assets` table existed.
-- **Fix / tests:** Fixed in PR #73; migration 009, ownership-scoped history API, transactional manual valuation recording, pagination, and regression tests completed.
-- **Dependency:** B7 PR #73 is pending merge into `fix/bug-bash`; B7b is now unblocked and can restore valuation history in CSV/PDF exports.
+- **Fix / tests:** Merged via PR #73: migration 009, ownership-scoped history API, transactional manual valuation recording, pagination and regression tests.
 
-### B7b – Valuation history removed from exports (#64)
-- **Steps to reproduce:** export CSV or PDF. Only current assets are listed; the PDF says valuation history is "temporarily omitted".
+### B7b – Valuation history removed from exports (#64) – Fixed
+- **Steps to reproduce (before):** export CSV or PDF. Only current assets are listed; the PDF says valuation history is "temporarily omitted".
 - **Root cause:** history was removed on purpose to stop the cross-user leak described in B7.
-- **Fix / tests:** Pending implementation; B7 PR #73 provides the unified asset relationship required to restore export history safely.
+- **Fix / tests:** Merged via PR #77. Exports include valuation history again, limited to the caller's non-deleted assets; covered in `backend/tests/reports.test.js`.
 
-### B8, B9, B10, B12 – No tracking issues
-Listed in #52 as Rushikesh's, but no GitHub issues exist, so title, steps to reproduce and root cause are not known to the bug log.
+### B8 – One failed ticker stops the whole stock refresh (#66) – Fixed
+- **Steps to reproduce (before):** run the stock refresh with one failing ticker. The job stops and every stock is marked stale.
+- **Root cause:** the refresh handled a failure for the whole run, not for each ticker.
+- **Fix / tests:** Merged via PR #72. Each ticker is handled separately and only the failing one is marked stale; covered in `backend/tests/marketRefresh.test.js`.
 
-### B11 – Dashboard endpoint mismatch (#61)
-- **Steps to reproduce:** set `VITE_USE_MOCK_API=false` and open the dashboard. The frontend calls `GET /api/dashboard` and `GET /api/dashboard/trend`; the backend only has `GET /api/assets/dashboard-summary`, so both return 404.
-- **Root cause:** frontend and backend were built against different contracts.
-- **Fix / tests:** pending.
+### B9 – Market-price cache semantics and valuation history during refresh (#67) – Open, PR #76
+- **Steps to reproduce:** compare `market_price_cache.price` for a stock and a gold holding: one is a per-share price, the other a total holding value. After a successful refresh, `valuations` has no new rows.
+- **Root cause:** the two asset classes use one column with different meanings, and the refresh job never writes valuation history.
+- **Fix / tests:** in PR #76 (Rushikesh).
+
+### B10 – Obsolete frontend valuation worker and duplicate services (#68) – Fixed
+- **Steps to reproduce (before):** `frontend/src/valuationWorker.js` calls `example.com`, and `alertService.js` and `valuationWorker.js` are duplicated at the repository root.
+- **Root cause:** code left over from before the backend refresh service existed.
+- **Fix / tests:** Merged via PR #71. The unused worker and duplicates were removed; the frontend build and tests pass.
+
+
+### B11 – Dashboard endpoint mismatch (#61) – Fixed in PR #80
+- **Steps to reproduce (before):** the frontend calls `GET /api/dashboard` and `GET /api/dashboard/trend`; the backend only has `GET /api/assets/dashboard-summary`, so both return 404. After PR #74 the page also shows only price alerts, with no totals or charts.
+- **Root cause:** frontend and backend were built against different contracts, and #74 replaced `Dashboard.jsx`.
+- **Fix:** both endpoints added, scoped to the caller's non-deleted assets. Allocation percents total exactly 100.00 (SAD 4.5). The trend is worked out from `valuations` per IST day, with no snapshots table, and today's point always equals `netWorth`. The dashboard cards are restored and the alerts moved to `AlertsPanel`.
+- **Tests:** `backend/tests/dashboard.test.js`, `frontend/src/pages/Dashboard.test.jsx`, `frontend/e2e-real/dashboard.spec.js`.
+
+### B12 – Dashboard alerts not persisted per user (#69) – Fixed
+- **Steps to reproduce (before):** add an alert and reload the page. It is gone, and alerts used the hard-coded user `user_01`.
+- **Root cause:** alerts lived in browser memory only.
+- **Fix / tests:** Merged via PR #74. Alerts are stored in `user_alerts` per authenticated user (migration 009); covered in `backend/tests/alerts.test.js`.
 
 ### B13 – Export date formats (#65)
 - **Steps to reproduce:** risk of JavaScript default date strings (`Fri Oct 30 2026 ...`) in CSV/PDF.
@@ -102,15 +129,77 @@ Listed in #52 as Rushikesh's, but no GitHub issues exist, so title, steps to rep
 
 ### New findings during regression (no issue yet)
 - **Asset create/update return the purchase date shifted by a day.** `POST /api/assets` with `"purchaseDate":"2021-03-15"` answers `"purchase_date":"2021-03-14T18:30:00.000Z"`: node-pg turns a DATE into midnight in the server's time zone (IST), which is the previous day in UTC. The stored value is correct, and the new `GET /api/assets` endpoints return `2021-03-15`. Fix: format the date in SQL (as the report and list queries do) or set a pg type parser for DATE. Needs an issue and an owner.
-- **Backend dependency advisory.** `npm audit --omit=dev` reports 1 high-severity advisory in `body-parser` 2.0.0–2.3.0 (pulled in by Express, already in the lockfile on `main`). `npm audit fix` should resolve it; needs an issue.
-- **Lint warning in `frontend/src/valuationWorker.js`** (unused catch parameter, line 35). Not an error, so lint passes; belongs to the market refresh work (Rushikesh).
+- **Backend dependency advisory (resolved in PR #81).** `npm audit fix` moved `body-parser` to 2.4.0, so `npm audit --omit=dev` now reports 0 vulnerabilities. `npm audit` still reports 2 moderate advisories in dev dependencies only (`nodemon` through `minimatch`). The offered fix needs `--force` and is flagged as breaking, so it was not applied.
 
-### B15 – Missing Docker and Nginx files (#62)
-- **Steps to reproduce:** `docker compose build`. `docker-compose.yml` builds `frontend/Dockerfile` and `backend/Dockerfile` and mounts `./nginx.conf` and `./certs`; none of these exist in the repository.
+### B15 – Missing Docker and Nginx files (#62) – Fixed in PR #82
+- **Steps to reproduce (before):** `docker compose build`. `docker-compose.yml` builds `frontend/Dockerfile` and `backend/Dockerfile` and mounts `./nginx.conf` and `./certs`; none of these exist in the repository.
 - **Root cause:** compose file was added without the files it references.
-- **Fix / tests:** pending.
+- **Fix:** added `backend/Dockerfile`, `frontend/Dockerfile`, `nginx.conf`, `scripts/gen-dev-certs.sh`, a `postgres:16-alpine` service with a named volume, `GET /api/health`, and a rewritten `docker-compose.yml` in which only the gateway publishes ports. Testing found that PostgreSQL restarting crashed the API process, because the `pg` pool had no `error` listener; `config/db.js` now has one.
+- **Tests:** `backend/tests/health.test.js`, `backend/tests/migrate.test.js`, and a manual run through the gateway, listed in PR #82.
+
+### B16 – Lockout re-locks after it expires – Fixed in PR #81
+- **Requirement:** PRJ-SR-005, TC-Sec-05.
+- **Steps to reproduce (before):** enter 5 wrong passwords and wait 15 minutes, then enter one wrong password. The account locks for another 15 minutes and the next attempt gets 423.
+- **Root cause:** `failed_login_attempts` stayed at 5 after `lock_until` passed. The next failure counted as the 6th, which met the limit again.
+- **Fix:** a failure after an expired lock starts a new count at 1. Lockouts and blocked attempts now go to the server log with only the user id and times. SAD 3.9 also asks for an `audit_log` table, which does not exist yet.
+- **Tests:** `backend/tests/authHardening.test.js`: 5 wrong then 423; after expiry 1 wrong is 401 and the right password is 200; 5 more are needed to lock again; a wrong password while locked does not extend the lock; no secrets in the log.
+
+### B17 – JWT lifetime hard-coded to 1h – Fixed in PR #81
+- **Requirement:** PRJ-SR-003 (configurable, default 24h).
+- **Steps to reproduce (before):** log in and decode the token: `exp - iat` is 3600 whatever the configuration.
+- **Root cause:** `expiresIn: "1h"` in `authController.js`.
+- **Fix:** `JWT_EXPIRES_IN`, default `24h`. A plain number means seconds; `jsonwebtoken` would otherwise read it as milliseconds.
+- **Tests:** `backend/tests/authHardening.test.js`: the default, a custom value, a plain number, an expired token, and a bad value giving a generic 500.
+
+### B18 – No security headers, X-Powered-By exposed – Fixed in PR #81
+- **Requirement:** TC-Sec-06, SAD 3.9.
+- **Steps to reproduce (before):** `curl -I http://localhost:5000/health` shows `X-Powered-By: Express` and no security headers.
+- **Root cause:** nothing set them.
+- **Fix:** `app.disable('x-powered-by')` and `helmet`.
+- **Tests:** `backend/tests/authHardening.test.js`, on public, protected and unknown routes.
+
+### B19 – `.env.example` missing JWT and CORS settings – Fixed in PR #81
+- **Steps to reproduce (before):** copy `.env.example` to `.env` and start the backend. It exits with `JWT_SECRET must be set before starting the API`.
+- **Root cause:** `JWT_SECRET`, `JWT_EXPIRES_IN` and `FRONTEND_ORIGIN` were not in the file.
+- **Fix:** added them with no real secrets, and blanked the placeholder price-feed URLs so the scheduler does not call `api.example.com`. The placeholder secret works for local development, but with `NODE_ENV=production` the API refuses to start with it or with any secret under 32 characters.
+- **Tests:** `jwtSecretProblem` in `backend/tests/authHardening.test.js`.
+
+### B20 – README has no run instructions – Fixed in PR #81
+- **Steps to reproduce (before):** read `README.md`: one line.
+- **Root cause:** never written.
+- **Fix:** local setup (role and database, `.env`, migration loops for bash and PowerShell, backend and frontend), tests, Docker, configuration and troubleshooting.
+- **Tests:** documentation. The role, database and bash loop were run against PostgreSQL 16; the Docker steps, including the PowerShell certificate command, were run for B15. The PowerShell `psql` loop was not run, because `psql` is not installed on the test machine; only its file order was checked.
+
+### B21 – Logging in right after logout gives a revoked token – Fixed in PR #81
+- **Requirement:** PRJ-SR-003, SAD 3.9 (claims include `jti`).
+- **Steps to reproduce (before):** log in, log out, and log in again within the same second. The login succeeds, but every request then answers 401. Found by `frontend/e2e-real/journey.spec.js`.
+- **Root cause:** tokens held only `id`, `email`, `iat` and `exp`, so two logins in the same second produced the identical JWT, and logout had just blacklisted it.
+- **Fix:** each token gets a random `jti`.
+- **Tests:** `backend/tests/authHardening.test.js`.
 
 ## Regression testing
+
+### 2026-11-07: PRs #79, #80, #81 and #82 merged locally
+
+Run on `origin/fix/bug-bash` (`9ade819`) with the four PRs merged in that order, without conflicts. Windows 11, Node 22.19.0, PostgreSQL 16.15 and Docker 29. **This is not the final regression for #58:** PRs #76 and #78 are not included, and it must be repeated on `fix/bug-bash` after all of them are merged.
+
+| Suite | Before | After |
+|---|---|---|
+| Backend API (`npm test`) | 95 passed | **163 passed** in 14 files |
+| Frontend unit (`npm test`) | 48 passed | **82 passed** in 8 files |
+| Frontend lint and build | pass | pass |
+| Playwright, mock data (`npm run test:e2e`) | 1 of 57 passed | **57 of 57 passed** |
+| Playwright, real backend, local (`npm run test:e2e:real`) | none | **7 of 7 passed**, 3 runs in a row |
+| Playwright, real backend, through the HTTPS gateway | none | **7 of 7 passed** |
+| `npm audit --omit=dev` in `backend` | 1 high | **0** |
+
+Backend test files: `alerts` (8), `assetEndpoints` (20), `assets` (7), `auth` (9), `authHardening` (20), `dashboard` (39), `emailNormalization` (8), `errorFormat` (11), `health` (4), `marketRefresh` (1), `migrate` (5), `registrationValidation` (18), `reports` (5), `valuations` (8).
+
+**Manual gateway checks:** TLS 1.0 and 1.1 refused, 1.2 and 1.3 accepted; HTTP redirects with 301; only ports 80 and 443 published; security headers present once each, with no CSP violations in the app; database outage gives 503 with no API restart, then recovers; data survives `down` and `up`. Full list in PR #82.
+
+**Trial merges with the open PRs:** #76 merges cleanly on top of the four. #78 conflicts in `backend/tests/reports.test.js` with `fix/bug-bash` even without them, because of #77, so it needs rebasing first.
+
+### 2026-11-01: before the teammates' fixes
 
 Run on 2026-11-01 on `fix/bug-bash` (after the B14, B3, B4, B6 and B5 commits), Windows 11, Node 22.19.0, PostgreSQL 16.15 (WSL Ubuntu 22.04).
 The teammates' fixes (B1, B2, B7, B7b, B11, B13, B15) and Rushikesh's untracked bugs are not merged yet, so the final regression in #58 must be repeated after their PRs land in `fix/bug-bash`.
