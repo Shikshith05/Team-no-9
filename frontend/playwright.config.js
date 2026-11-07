@@ -1,5 +1,6 @@
-// Responsive UI tests (PWM-NF-004 / TC-UX-01).
+// Responsive UI tests (PWM-NF-004 / TC-UX-01), using the mock data source.
 // Run with: npm run test:e2e   (first time: npx playwright install chromium)
+// For the journey against the real backend, see playwright.real.config.js.
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
@@ -15,6 +16,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'npm run build && npx vite preview --port 4173 --strictPort',
+    env: { VITE_USE_MOCK_API: 'true' },
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
