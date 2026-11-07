@@ -93,6 +93,20 @@ describe('Dashboard', () => {
     expect(screen.getByTestId('trend-change').textContent).toContain('₹3,45,000.00');
   });
 
+  it('says "since" when the history is shorter than the range, and names the range when it is not', async () => {
+    serve();
+    render(<Dashboard />);
+    expect((await screen.findByTestId('trend-change')).textContent).toContain('since 6 Nov 2026');
+    cleanup();
+
+    serve({
+      trend: (range) =>
+        json(trendReply(range, [{ date: '2025-11-07', netWorth: '1000.00' }, { date: '2026-11-07', netWorth: '2000.00' }])),
+    });
+    render(<Dashboard />);
+    expect((await screen.findByTestId('trend-change')).textContent).toContain('in the past year');
+  });
+
   it('asks the API for each range the user selects', async () => {
     serve();
     render(<Dashboard />);
