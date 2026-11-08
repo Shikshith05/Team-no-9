@@ -116,11 +116,17 @@ describe("GET /api/dashboard", () => {
   });
 
   it("groups different spellings of an asset class under one slice", async () => {
-    const { auth } = await createLoggedInUser();
+    const { auth, user } = await createLoggedInUser();
     await createAsset(auth, { assetType: "real_estate", value: "10.00" });
     await createAsset(auth, { assetType: "REAL_ESTATE", value: "20.00" });
-    await createAsset(auth, { assetType: "cash_bank", value: "5.00" });
     await createAsset(auth, { assetType: "CASH", value: "5.00" });
+    // B22: the API no longer accepts "cash_bank", but a row migration 010 left
+    // unmapped can still carry an old spelling; the dashboard still groups it.
+    await pool.query(
+      `INSERT INTO assets (user_id, asset_name, asset_type, legacy_asset_type, value)
+       VALUES ($1, 'Old wallet', 'CASH_BANK', 'CASH_BANK', 5.00)`,
+      [user.id]
+    );
 
     const { body } = await getDashboard(auth);
 
