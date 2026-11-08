@@ -101,7 +101,7 @@ function ResetForm({ token, onOutcome }) {
           onOutcome('invalid');
           return;
         }
-        setErrors({ password: fields.newPassword ?? err.message, confirmation: null });
+        setErrors({ password: fields.password ?? err.message, confirmation: null });
         passwordRef.current?.focus();
       } else if (err.status === 429) {
         setFormError('Too many attempts. Please wait a few minutes and try again.');

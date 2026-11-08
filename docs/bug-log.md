@@ -33,6 +33,7 @@ Status as of 2026-11-07.
 | B19 | none (audit) | `.env.example` missing JWT and CORS settings | Shikshith05 | Fixed in PR #81 – pending merge |
 | B20 | none (audit) | README has no run instructions | Shikshith05 | Fixed in PR #81 – pending merge |
 | B21 | none (audit) | Logging in right after logout gives a revoked token | Shikshith05 | Fixed in PR #81 – pending merge |
+| B24 | none (audit) | Forgot / reset password endpoints don't exist | Shikshith05 | Fixed in branch `fix/B24-password-reset` – PR pending review |
 | B22 | none (audit) | Asset types lack their required fields; any asset type accepted | Shikshith05 | Fixed in branch `fix/B22-asset-type-fields` – PR pending review |
 | B23 | none (audit) | No way to add, edit or delete assets in the UI | Shikshith05 | Fixed in branch `fix/B23-asset-forms` (on top of B22) – PR pending review |
 
@@ -179,6 +180,30 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
 - **Fix:** each token gets a random `jti`.
 - **Tests:** `backend/tests/authHardening.test.js`.
 
+### B24 – Forgot / reset password endpoints don't exist – Fixed in `fix/B24-password-reset`
+- **Requirement:** PWM-F-003 (AC-PWM-F-003: the link expires after 30 minutes and works once; TC-Auth-03); PRJ-SR-003 (TC-Sec-03); PRJ-SR-005; SAD 3.9, 4.2.3, 4.3.4, 4.4.
+- **Steps to reproduce (before):** open `#/forgot-password`, enter an email and press "Send reset link". `POST /api/auth/forgot-password` answers 404 and the page shows "We couldn't send the request". `POST /api/auth/reset-password` also answers 404.
+- **Expected:** the same reply for any email; a single-use link valid for 30 minutes; after a reset, the new password works, old sessions end and any lockout is cleared.
+- **Root cause:** only the frontend pages and a mock were built (Sprint 2). The endpoints, the token table and session invalidation were never implemented.
+- **Fix:**
+  - Migration `011_password_reset.sql` adds `password_reset_tokens` (SAD 4.4: `user_id`, SHA-256 `token_hash`, `expires_at`, `used_at`) and `users.token_valid_after` (SAD 3.9).
+  - `POST /api/auth/forgot-password {email}`: a bad email format is 400. Otherwise the reply is always 202 with the same body, whether or not the account exists (SAD 4.3.4). For an existing account it makes a random 32-byte token, stores only its hash with a 30-minute expiry, and removes the user's older unused tokens.
+  - `POST /api/auth/reset-password {token, password}`: an unknown, expired or used token is 400 `RESET_TOKEN_INVALID`, `RESET_TOKEN_EXPIRED` or `RESET_TOKEN_USED` in the SAD error format.
+  - The password must meet the registration policy (400 `VALIDATION_ERROR` on `password`). A weak password does not use up the link.
+  - On success the password is hashed with bcrypt, the token is marked used, `failed_login_attempts` and `lock_until` are cleared, and `token_valid_after` is set.
+  - `authMiddleware.js` rejects any JWT issued before `token_valid_after` with 401 "Your password was changed".
+  - The time is cut to whole seconds, because a JWT's `iat` is: a login in the same second as the reset must keep working (compare B21). The cost is that a token issued earlier in that same second is not rejected.
+  - Frontend: `api/auth.js` sends `{token, password}` (it sent `newPassword`) and clears this browser's session after a reset. `ResetPasswordPage.jsx` reads the `password` field error. Both pages already had their screens.
+- **Deviations:**
+  - **No email.** There is no email service or notification outbox (SAD 4.1, 4.6). Outside production the reset link is written to the backend console. That breaks SAD 3.9's "reset links are never logged", but it is the only way to use the feature locally. In production nothing secret is logged, so reset links cannot be delivered until an email provider is added. Documented in README.md.
+  - The reply is 202 (SAD 4.3.4), not 200.
+  - No rate limit on `/api/auth/*` yet (SAD 3.9 asks for one).
+  - No `audit_log` table: events go to the server log, with the user id only.
+  - An existing email does slightly more database work than an unknown one, so response timing is not perfectly uniform.
+- **Tests:**
+  - `backend/tests/passwordReset.test.js`: identical reply for an unknown email; only the hash is stored, with a 30-minute expiry; link logged outside production and not in production; a new request invalidates the old link; new password works and the old one doesn't; single use; expired link; unknown, missing or malformed token; weak passwords leave the link usable; old JWTs rejected; lockout cleared; other users unaffected; migration 011 re-run on existing data.
+  - `frontend/src/pages/passwordResetPages.test.jsx`: request body, the three link-problem screens, server password error, client policy, local session cleared.
+  - `frontend/e2e-real/passwordReset.spec.js`: the full journey against the real backend, reading the link from the backend log (`E2E_BACKEND_LOG`).
 ### B22 – Asset types lack their required fields – Fixed in `fix/B22-asset-type-fields`
 - **Requirement:** PWM-F-010, PWM-F-011, PWM-F-012, PWM-F-013, PWM-F-015; SAD 4.3.3, 4.4; TC-RE-01, TC-Gold-01, TC-Stock-01, TC-Cash-01, TC-Asset-02.
 - **Steps to reproduce (before):** `POST /api/assets` with `{"assetName":"x","assetType":"banana","value":1}` returns 201. A gold asset cannot carry its form, purity or weight, a stock its ticker or quantity, a property its location or purchase value, or a cash entry its account label: `assets` only has name, type, value and purchase date, and `GET /api/assets` always answers `location: null` and `purchaseValue: null`.
