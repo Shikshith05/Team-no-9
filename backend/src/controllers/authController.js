@@ -2,8 +2,8 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
-const { validateRegistration } = require("../utils/validation");
-const { accountLocked, conflict, unauthorized, validationError } = require("../utils/errors");
+const { validateEmail, validatePassword, validateRegistration } = require("../utils/validation");
+const { AppError, accountLocked, conflict, unauthorized, validationError } = require("../utils/errors");
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_TIME_MS = 15 * 60 * 1000;
@@ -143,4 +143,128 @@ exports.logout = async (req, res) => {
     );
   }
   res.status(200).json({ success: true, message: "Logged out successfully" });
+};
+
+// ---------------------------------------------------------------------------
+// B24: forgot / reset password (PWM-F-003, AC-PWM-F-003: the link expires after
+// 30 minutes and works once; TC-Auth-03; SAD 3.9, 4.2.3, 4.4).
+//
+// Deviation: there is no email service yet (SAD's notification outbox does not
+// exist). Outside production the reset link is written to the server console
+// instead of being emailed; in production nothing secret is logged, so the
+// link cannot be delivered at all until an email provider is added.
+// See README.md and docs/bug-log.md (B24).
+// ---------------------------------------------------------------------------
+
+const RESET_TOKEN_LIFETIME_MS = 30 * 60 * 1000; // AC-PWM-F-003
+const RESET_REQUESTED_MESSAGE = "If an account exists for that email, we've sent a link to reset the password.";
+
+const hashResetToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+
+const resetLinkProblem = (code, message) => new AppError(400, code, message, [{ field: "token", message }]);
+
+function resetLink(token) {
+  const origin = (process.env.FRONTEND_ORIGIN || "http://localhost:5173").replace(/\/+$/, "");
+  return `${origin}/#/reset-password?token=${encodeURIComponent(token)}`;
+}
+
+// POST /api/auth/forgot-password {email}
+// Always the same 202 reply whether or not the account exists (SAD 4.3.4), so
+// the answer cannot be used to find out which emails are registered.
+exports.forgotPassword = async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  const problem = validateEmail(email);
+  if (problem) throw validationError([{ field: "email", message: problem }]);
+
+  // The token is made either way, so both answers take about the same work.
+  const token = crypto.randomBytes(32).toString("base64url");
+  const tokenHash = hashResetToken(token);
+
+  const found = await pool.query("SELECT id FROM users WHERE LOWER(email) = $1", [email]);
+  if (found.rows.length > 0) {
+    const userId = found.rows[0].id;
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      // Only the newest link works: unused older links for this user are removed.
+      await client.query("DELETE FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL", [userId]);
+      await client.query(
+        "INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
+        [userId, tokenHash, new Date(Date.now() + RESET_TOKEN_LIFETIME_MS)]
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    logSecurityEvent("PASSWORD_RESET_REQUESTED", { userId });
+    if (process.env.NODE_ENV !== "production") {
+      // Stand-in for the email (development and tests only).
+      console.info(`[password reset] Reset link for user ${userId} (valid 30 minutes): ${resetLink(token)}`);
+    }
+  }
+
+  res.status(202).json({ success: true, message: RESET_REQUESTED_MESSAGE });
+};
+
+// POST /api/auth/reset-password {token, password}
+// A valid, unexpired, unused token sets the new password (registration policy,
+// bcrypt), is marked used, clears any lockout (PRJ-SR-005) and ends every
+// existing session through users.token_valid_after (PRJ-SR-003, TC-Sec-03).
+exports.resetPassword = async (req, res) => {
+  const token = req.body?.token;
+  const password = req.body?.password;
+
+  if (typeof token !== "string" || token.trim() === "" || token.length > 200) {
+    throw resetLinkProblem("RESET_TOKEN_INVALID", "This reset link is not valid.");
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const found = await client.query(
+      `SELECT id, user_id, used_at, expires_at <= NOW() AS expired
+       FROM password_reset_tokens
+       WHERE token_hash = $1
+       FOR UPDATE`,
+      [hashResetToken(token.trim())]
+    );
+    const row = found.rows[0];
+    if (!row) throw resetLinkProblem("RESET_TOKEN_INVALID", "This reset link is not valid.");
+    if (row.used_at) throw resetLinkProblem("RESET_TOKEN_USED", "This reset link has already been used.");
+    if (row.expired) throw resetLinkProblem("RESET_TOKEN_EXPIRED", "This reset link has expired.");
+
+    // Checked after the link, so a weak password does not use up the link.
+    const problem = validatePassword(password);
+    if (problem) throw validationError([{ field: "password", message: problem }]);
+
+    const hashedPassword = await bcrypt.hash(password, await bcrypt.genSalt(10));
+    // token_valid_after is whole seconds because a JWT's iat is: a login in the
+    // same second as the reset must still work (compare B21).
+    await client.query(
+      `UPDATE users
+       SET password = $1,
+           failed_login_attempts = 0,
+           lock_until = NULL,
+           token_valid_after = DATE_TRUNC('second', NOW()),
+           updated_at = NOW()
+       WHERE id = $2`,
+      [hashedPassword, row.user_id]
+    );
+    await client.query("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1", [row.id]);
+    await client.query("DELETE FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL", [row.user_id]);
+    await client.query("COMMIT");
+
+    logSecurityEvent("PASSWORD_RESET_COMPLETED", { userId: row.user_id });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  res.status(200).json({ success: true, message: "Your password has been reset. Please log in with the new password." });
 };

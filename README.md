@@ -169,6 +169,21 @@ All settings come from environment variables, and secrets never go in the reposi
 | `STOCK_PRICE_API_URL`, `GOLD_PRICE_API_URL` | unset | Price feeds (https only). The refresh scheduler starts only when both are set. |
 | `VITE_USE_MOCK_API` | unset | Frontend build: `true` uses mock data instead of the API. |
 
+## Password reset (no email yet)
+
+"Forgot password" (PWM-F-003) works, but **the app cannot send email yet**. This is a known deviation from SAD 4.1 and 4.6, which route reset emails through a notification outbox.
+
+- **Outside production** (`NODE_ENV` is not `production`), the backend prints the reset link to its console instead of emailing it:
+
+  ```
+  [password reset] Reset link for user 8 (valid 30 minutes): http://localhost:5173/#/reset-password?token=...
+  ```
+
+  The link starts with `FRONTEND_ORIGIN`. It works once and expires after 30 minutes. Asking again replaces the previous link.
+- **In production**, nothing secret is logged (only `PASSWORD_RESET_REQUESTED` with the user id). Users cannot reset their password until an email provider is added.
+- The reply is the same whether or not the email has an account. A reset clears any lockout and signs the account out everywhere.
+- To run the real-browser reset test, start the backend with its output in a file (`node src/app.js > backend.log 2>&1`), then run `E2E_BACKEND_LOG=../backend/backend.log npm run test:e2e:real`. Without that variable the test is skipped.
+
 ## Troubleshooting
 
 | What you see | Cause and fix |

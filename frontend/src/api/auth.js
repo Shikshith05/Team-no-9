@@ -2,7 +2,7 @@
 import { apiFetch } from './http.js';
 import { USE_MOCK } from './mock.js';
 import { mockForgotPassword, mockResetPassword } from './mockAuth.js';
-import { expireSession, hasSession, saveSession } from './session.js';
+import { clearSession, expireSession, hasSession, saveSession } from './session.js';
 
 export async function register(name, email, password) {
   if (USE_MOCK) {
@@ -49,6 +49,8 @@ export async function logout() {
   }
 }
 
+// B24 (PWM-F-003). POST /api/auth/forgot-password {email} -> 202 whether or not
+// the account exists (SAD 4.3.4) | 400 VALIDATION_ERROR (email format).
 export async function requestPasswordReset(email) {
   if (USE_MOCK) return mockForgotPassword(email);
 
@@ -58,11 +60,18 @@ export async function requestPasswordReset(email) {
   });
 }
 
-export async function resetPassword(token, newPassword) {
-  if (USE_MOCK) return mockResetPassword(token, newPassword);
+// POST /api/auth/reset-password {token, password} -> 200
+// 400 RESET_TOKEN_INVALID | RESET_TOKEN_EXPIRED | RESET_TOKEN_USED, or
+// 400 VALIDATION_ERROR with a "password" field error (registration policy).
+// A reset ends every session of the account (users.token_valid_after), so this
+// browser's stored session is dropped too.
+export async function resetPassword(token, password) {
+  if (USE_MOCK) return mockResetPassword(token, password);
 
-  return apiFetch('/api/auth/reset-password', {
+  const result = await apiFetch('/api/auth/reset-password', {
     method: 'POST',
-    body: { token, newPassword },
+    body: { token, password },
   });
+  clearSession();
+  return result;
 }
