@@ -34,11 +34,11 @@ describe("validation errors (400)", () => {
 
   it("values the database cannot store are a 400, not a raw database error", async () => {
     const { auth } = await createLoggedInUser();
-    const huge = await request(app).post("/api/assets").set("Authorization", auth).send({ assetName: "x", assetType: "cash_bank", value: 1e20 });
+    const huge = await request(app).post("/api/assets").set("Authorization", auth).send({ assetName: "x", assetType: "CASH", accountLabel: "Savings", value: 1e20 });
     expectSadError(huge, 400, "VALIDATION_ERROR");
     expect(huge.body.error.fields).toEqual([{ field: "value", message: "Value is too large." }]);
 
-    const negative = await request(app).post("/api/assets").set("Authorization", auth).send({ assetName: "x", assetType: "cash_bank", value: -5 });
+    const negative = await request(app).post("/api/assets").set("Authorization", auth).send({ assetName: "x", assetType: "CASH", accountLabel: "Savings", value: -5 });
     expect(negative.body.error.fields).toEqual([{ field: "value", message: "Value cannot be negative." }]);
   });
 
@@ -103,7 +103,7 @@ describe("internal errors (500)", () => {
       String(text).includes("INSERT INTO assets") ? Promise.reject(dbError) : realQuery(text, ...rest)
     );
 
-    const res = await request(app).post("/api/assets").set("Authorization", auth).send({ assetName: "x", assetType: "cash_bank", value: 1 });
+    const res = await request(app).post("/api/assets").set("Authorization", auth).send({ assetName: "x", assetType: "CASH", accountLabel: "Savings", value: 1 });
     expectSadError(res, 500, "INTERNAL_ERROR");
     expect(res.body.error.message).toBe("Something went wrong. Please try again later.");
     expect(JSON.stringify(res.body)).not.toMatch(/relation|SELECT|password|42P01|stack/i);
@@ -141,7 +141,7 @@ describe("successful responses are unchanged", () => {
     expect(typeof token).toBe("string");
     expect(Object.keys(user).sort()).toEqual(["email", "id", "name"]);
 
-    const created = await request(app).post("/api/assets").set("Authorization", auth).send({ assetName: "Gold", assetType: "gold", value: "10.50" });
+    const created = await request(app).post("/api/assets").set("Authorization", auth).send({ assetName: "Gold", assetType: "gold", form: "COIN", purityKarat: 22, weightGrams: "1.000", purchasePrice: "10.00", value: "10.50" });
     expect(created.status).toBe(201);
     expect(created.body.success).toBe(true);
     expect(created.body.data.value).toBe("10.50");

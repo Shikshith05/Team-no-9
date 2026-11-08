@@ -7,19 +7,19 @@ beforeEach(resetDatabase);
 
 describe("asset CRUD", () => {
   it("requires authentication", async () => {
-    expect((await request(app).post("/api/assets").send({ assetName: "x", assetType: "cash_bank", value: 1 })).status).toBe(401);
+    expect((await request(app).post("/api/assets").send({ assetName: "x", assetType: "CASH", value: 1 })).status).toBe(401);
     expect((await request(app).get("/api/assets/dashboard-summary")).status).toBe(401);
   });
 
   it("creates an asset owned by the logged-in user", async () => {
     const { auth, user } = await createLoggedInUser();
-    const asset = await createAsset(auth, { assetName: "Savings", assetType: "cash_bank", value: 25000 });
-    expect(asset).toMatchObject({ user_id: user.id, asset_name: "Savings", asset_type: "cash_bank", value: "25000.00" });
+    const asset = await createAsset(auth, { assetName: "Savings", assetType: "CASH", value: 25000 });
+    expect(asset).toMatchObject({ user_id: user.id, asset_name: "Savings", asset_type: "CASH", account_label: "Savings account", value: "25000.00" });
   });
 
   it("rejects a negative value", async () => {
     const { auth } = await createLoggedInUser();
-    const res = await request(app).post("/api/assets").set("Authorization", auth).send({ assetName: "x", assetType: "cash_bank", value: -1 });
+    const res = await request(app).post("/api/assets").set("Authorization", auth).send({ assetName: "x", assetType: "CASH", value: -1 });
     expect(res.status).toBe(400);
   });
 
@@ -64,8 +64,8 @@ describe("GET /api/assets/dashboard-summary", () => {
     const me = await createLoggedInUser("me@example.com");
     const other = await createLoggedInUser("other@example.com");
     await createAsset(me.auth, { assetType: "real_estate", value: 1000 });
-    await createAsset(me.auth, { assetType: "cash_bank", value: 200 });
-    const gone = await createAsset(me.auth, { assetType: "cash_bank", value: 999 });
+    await createAsset(me.auth, { assetType: "CASH", value: 200 });
+    const gone = await createAsset(me.auth, { assetType: "CASH", value: 999 });
     await createAsset(other.auth, { assetType: "real_estate", value: 50000 });
     await request(app).delete(`/api/assets/${gone.id}`).set("Authorization", me.auth);
 
@@ -73,6 +73,7 @@ describe("GET /api/assets/dashboard-summary", () => {
     expect(res.status).toBe(200);
     expect(res.body.totalNetWorth).toBe(1200);
     const byType = Object.fromEntries(res.body.allocation.map((a) => [a.asset_type, a.total_value]));
-    expect(byType).toEqual({ real_estate: "1000.00", cash_bank: "200.00" });
+    // B22: types are stored under their SAD names.
+    expect(byType).toEqual({ REAL_ESTATE: "1000.00", CASH: "200.00" });
   });
 });

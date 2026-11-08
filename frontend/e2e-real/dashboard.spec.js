@@ -38,12 +38,13 @@ test('totals, allocation and every trend range come from the real API', async ({
   page.on('pageerror', (error) => errors.push(error.message));
   const headers = await logIn(page, request);
 
-  for (const [assetName, assetType, value] of [
-    ['Flat', 'REAL_ESTATE', '100.00'],
-    ['Shares', 'STOCK', '100.00'],
-    ['Coins', 'GOLD', '100.00'],
+  // B22: each type needs its own SRS fields (PWM-F-010, F-011, F-012).
+  for (const [assetName, assetType, value, details] of [
+    ['Flat', 'REAL_ESTATE', '100.00', { location: 'Chennai', purchaseValue: '90.00', purchaseDate: '2021-03-15' }],
+    ['Shares', 'STOCK', '100.00', { ticker: 'INFY', quantity: '1', averageBuyPrice: '90.00' }],
+    ['Coins', 'GOLD', '100.00', { form: 'COIN', purityKarat: 24, weightGrams: '1.000', purchasePrice: '90.00' }],
   ]) {
-    const created = await request.post('/api/assets', { headers, data: { assetName, assetType, value } });
+    const created = await request.post('/api/assets', { headers, data: { assetName, assetType, value, ...details } });
     expect(created.status()).toBe(201);
   }
   await page.reload();

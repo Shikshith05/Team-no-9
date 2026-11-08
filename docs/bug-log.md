@@ -34,6 +34,8 @@ Status as of 2026-11-07.
 | B20 | none (audit) | README has no run instructions | Shikshith05 | Fixed in PR #81 – pending merge |
 | B21 | none (audit) | Logging in right after logout gives a revoked token | Shikshith05 | Fixed in PR #81 – pending merge |
 | B24 | none (audit) | Forgot / reset password endpoints don't exist | Shikshith05 | Fixed in branch `fix/B24-password-reset` – PR pending review |
+| B22 | none (audit) | Asset types lack their required fields; any asset type accepted | Shikshith05 | Fixed in branch `fix/B22-asset-type-fields` – PR pending review |
+| B23 | none (audit) | No way to add, edit or delete assets in the UI | Shikshith05 | Fixed in branch `fix/B23-asset-forms` (on top of B22) – PR pending review |
 
 Open items that block closing #58 (its acceptance criteria say no critical bug may remain open, and the final regression must be repeated):
 - B9 (#67) and B13 (#65) are still open, in PRs #76 and #78.
@@ -71,7 +73,7 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
 - **Steps to reproduce (before):** with a valid token, `GET /api/assets`, `GET /api/assets/1` and `PUT /api/assets/1/valuation` return Express's HTML 404. The Assets, valuation and history screens can only run on mock data.
 - **Root cause:** only create, update, delete and dashboard-summary were implemented.
 - **Fix:** list (type filter, page/limit, `{items,page,limit,total}`), get-one and manual valuation on the `assets` table, all scoped to the caller and to non-deleted rows, in the shapes of `frontend/src/api/assets.js`. Stock and gold are refused with 422 `MARKET_VALUED`. Another user's asset is 404.
-- **Valuation history:** Manual valuation updates now write a MANUAL row to `valuations` in the same transaction (implemented in B7 PR #73). `location` and `purchaseValue` remain null because the unified table has no such columns.
+- **Valuation history:** Manual valuation updates now write a MANUAL row to `valuations` in the same transaction (implemented in B7 PR #73). `location` and `purchaseValue` were null because the unified table had no such columns; B22 adds them.
 - **Tests:** `backend/tests/assetEndpoints.test.js`.
 
 ### B6 – Inconsistent errors and database error leakage (#55) – Fixed
@@ -202,6 +204,45 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
   - `backend/tests/passwordReset.test.js`: identical reply for an unknown email; only the hash is stored, with a 30-minute expiry; link logged outside production and not in production; a new request invalidates the old link; new password works and the old one doesn't; single use; expired link; unknown, missing or malformed token; weak passwords leave the link usable; old JWTs rejected; lockout cleared; other users unaffected; migration 011 re-run on existing data.
   - `frontend/src/pages/passwordResetPages.test.jsx`: request body, the three link-problem screens, server password error, client policy, local session cleared.
   - `frontend/e2e-real/passwordReset.spec.js`: the full journey against the real backend, reading the link from the backend log (`E2E_BACKEND_LOG`).
+### B22 – Asset types lack their required fields – Fixed in `fix/B22-asset-type-fields`
+- **Requirement:** PWM-F-010, PWM-F-011, PWM-F-012, PWM-F-013, PWM-F-015; SAD 4.3.3, 4.4; TC-RE-01, TC-Gold-01, TC-Stock-01, TC-Cash-01, TC-Asset-02.
+- **Steps to reproduce (before):** `POST /api/assets` with `{"assetName":"x","assetType":"banana","value":1}` returns 201. A gold asset cannot carry its form, purity or weight, a stock its ticker or quantity, a property its location or purchase value, or a cash entry its account label: `assets` only has name, type, value and purchase date, and `GET /api/assets` always answers `location: null` and `purchaseValue: null`.
+- **Expected:** each asset class stores the fields its SRS requirement lists, invalid input is rejected with field-level messages (400), and only the four SRS classes exist.
+- **Root cause:** the unified `assets` table (migration 007) replaced the per-type tables of migrations 001–004 without taking their columns, and `assetType` was validated only as non-empty text.
+- **Fix:**
+  - Migration `010_asset_type_fields.sql` adds nullable columns to `assets` (team decision: one table): `location`, `purchase_value` (real estate); `form`, `purity_karat`, `weight_grams`, `purchase_price` (gold); `ticker`, `exchange`, `quantity`, `average_buy_price` (stock); `account_label` (cash), with the SAD 4.4 column types and CHECK constraints (no negative money, weight and quantity above 0, purity 1–24, form JEWELLERY/COIN/BAR, exchange NSE/BSE, `value` at least 0 for new and edited rows). The per-type tables and the valuations foreign key are unchanged.
+  - **Existing rows:** spellings that clearly mean one class (`real_estate`, `Real Estate`, `gold`, `Stock`, `cash_bank`, …) are mapped to the SAD names `REAL_ESTATE`, `GOLD`, `STOCK`, `CASH`, and the original text is kept in `legacy_asset_type`. Anything else (for example `banana`) is left exactly as it is, still listed and counted, because guessing its class would move money between dashboard slices. A CHECK constraint allows only the four types, or a legacy row's own original value. No row, value or valuation is deleted. The migration is safe to re-run.
+  - `backend/src/utils/assetValidation.js`: `assetType` must be one of the four (any case). Required per type: real estate: name, location, purchase value, purchase date, value; gold: form, purity, weight, purchase price, value; stock: ticker, quantity, average buy price, value (exchange optional, default NSE); cash: account label, value. Gold, stock and cash get a name from their details if none is given. Decimals may be strings (SAD 4.3.1) or numbers, with 2 decimals for money, 3 for weight and 4 for quantity. Max lengths: name and location 255, account label 150, ticker 20. All field errors are returned together as 400 `VALIDATION_ERROR`. Fields belonging to another type are ignored.
+  - `PUT /api/assets/:id` merges the body over the stored asset and validates the result, so partial updates still work. Changing the type clears the old type's fields. An asset stored before B22 must be completed on its first edit. Ownership and soft-delete rules are unchanged (another user's or a deleted asset is 404).
+  - `GET /api/assets` and `GET /api/assets/:id` return the new fields (null where they don't apply). The `POST`/`PUT` response shape `{success, data}` is unchanged. Dashboard and exports use only the existing columns and work as before. For legacy rows the export now shows `REAL_ESTATE` instead of `real_estate`, because the stored type was normalized.
+  - `value` is still the value the user enters for every type. Revaluing stock and gold from the price feeds (PWM-F-020/021) belongs to B9, PR #76.
+- **Deviations:**
+  - SRS AC-PWM-F-012 and TC-Stock-01 ask for the ticker to be checked against known symbols (422 when unknown). There is no symbol master (SAD `instruments` table), so only the format is checked.
+  - SRS PWM-F-015 says "non-negative": money may be 0, but weight and quantity must be above 0, as in the legacy tables.
+  - Request field names stay `assetName` and `value` (existing API) rather than SAD 4.3.3's `currentEstimatedValue` and `balance`.
+  - Asset edits do not write a valuations row (SAD 4.5). Only `PUT /api/assets/:id/valuation` does, because a change here would alter the exports that B13 (PR #78) is testing.
+  - Another user's asset is 404, not the 403 of PRJ-SR-004 (unchanged from B5).
+- **Tests:** `backend/tests/assetTypes.test.js` (valid create per type, missing and invalid fields per type including purity 0/25, negative weight and bad tickers, unknown types rejected, database CHECKs when the API is bypassed, partial update, type change, cross-user read and update, soft-deleted asset, legacy row completion, dashboard and CSV) and `backend/tests/assetTypesMigration.test.js` (010 applied by the runner to a database with free-text assets and a valuation row, then re-run twice). `tests/helpers.js` fills valid per-type details, so suites that only set name, type and value (including `reports.test.js`) are unchanged. Real-backend Playwright specs updated to send the new fields.
+
+### B23 – No way to add, edit or delete assets in the UI – Fixed in `fix/B23-asset-forms`
+- **Requirement:** PWM-F-014 (TC-Asset-01), PWM-F-010 to PWM-F-013, PWM-F-015; SRS 3.1 (inline validation); SAD 4.8; PWM-NF-004 (TC-UX-01).
+- **Steps to reproduce (before):** log in and open Assets. Only real estate is listed. There is no button to add an asset, and no way to edit or delete one. Gold, stocks and cash can only be created with a direct API call.
+- **Expected:** an "Add asset" form for each of the four classes, plus edit and delete for every asset; the dashboard totals follow (AC-PWM-F-014).
+- **Root cause:** `AssetsPage.jsx` was built for the manual real-estate valuation story (#12) only. The forms waited for the asset APIs, and then for the per-type fields (B22).
+- **Fix:**
+  - `AssetsPage.jsx` lists every asset by class (real estate, stocks, gold, cash, then any pre-B22 row with another type). Each card shows its class's details.
+  - "Add asset" opens `components/AssetForm.jsx`. Its fields change with the type selected (B22's fields).
+  - `lib/assetForm.js` applies the API's rules in the browser, so an error shows next to its input and nothing is sent. Server field errors (SAD format) appear on the same inputs.
+  - The submit button is disabled and reads "Saving…" while the request runs.
+  - Edit opens the same form prefilled and sends `PUT /api/assets/:id`.
+  - Delete opens `components/ConfirmDialog.jsx`, an in-page `alertdialog` (not `window.confirm`): focus starts on Cancel and stays in the dialog, Escape cancels, and server errors show inside it. Confirming sends `DELETE /api/assets/:id`, a soft delete.
+  - After every change, `notifyAssetsChanged()` reloads the list and the dashboard.
+  - All calls go through `http.js`, so a 401 clears the session and goes to the login page.
+- **Tests:**
+  - `frontend/src/lib/assetForm.test.js` and `frontend/src/pages/AssetsPage.test.jsx`: fields per type; client errors with nothing sent; create, edit and delete call the right endpoints with the right bodies; server field errors; 401; delete dialog confirm, cancel, Escape and error; the list reloads.
+  - `frontend/e2e/assets.spec.js` (mock data): add, edit and delete with net worth following, plus the form for every type and the dialog at 360, 768 and 1280 px.
+  - `frontend/e2e-real/assets.spec.js` (real backend): log in, add each type through the form, edit, delete; the dashboard total changes each time.
+  - `docs/responsive-test-log.md` updated.
 
 ## Regression testing
 

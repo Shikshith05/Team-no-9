@@ -30,12 +30,25 @@ const INITIAL_ASSETS = [
     currentValue: '1700000.00',
     valuedAt: '2026-04-12T06:00:00Z',
   },
-  { id: 'mock-st-1', assetType: 'STOCK', name: 'RELIANCE', currentValue: '712500.00', isStale: false },
-  { id: 'mock-st-2', assetType: 'STOCK', name: 'INFY', currentValue: '487500.00', isStale: false },
-  { id: 'mock-gd-1', assetType: 'GOLD', name: 'Gold coins 24K', currentValue: '420000.00', isStale: false },
-  { id: 'mock-gd-2', assetType: 'GOLD', name: 'Jewellery 22K', currentValue: '225000.00', isStale: false },
-  { id: 'mock-ca-1', assetType: 'CASH', name: 'Savings account', currentValue: '250000.00' },
-  { id: 'mock-ca-2', assetType: 'CASH', name: 'Wallet', currentValue: '50000.00' },
+  // B22 fields per type (SAD 4.3.3).
+  {
+    id: 'mock-st-1', assetType: 'STOCK', name: 'RELIANCE', currentValue: '712500.00', isStale: false,
+    ticker: 'RELIANCE', exchange: 'NSE', quantity: '250', averageBuyPrice: '2400.00',
+  },
+  {
+    id: 'mock-st-2', assetType: 'STOCK', name: 'INFY', currentValue: '487500.00', isStale: false,
+    ticker: 'INFY', exchange: 'NSE', quantity: '300', averageBuyPrice: '1450.00',
+  },
+  {
+    id: 'mock-gd-1', assetType: 'GOLD', name: 'Gold coins 24K', currentValue: '420000.00', isStale: false,
+    form: 'COIN', purityKarat: 24, weightGrams: '60.000', purchasePrice: '330000.00',
+  },
+  {
+    id: 'mock-gd-2', assetType: 'GOLD', name: 'Jewellery 22K', currentValue: '225000.00', isStale: false,
+    form: 'JEWELLERY', purityKarat: 22, weightGrams: '35.500', purchasePrice: '180000.00',
+  },
+  { id: 'mock-ca-1', assetType: 'CASH', name: 'Savings account', accountLabel: 'Savings account', currentValue: '250000.00' },
+  { id: 'mock-ca-2', assetType: 'CASH', name: 'Wallet', accountLabel: 'Wallet', currentValue: '50000.00' },
   // Deleted assets must not count toward net worth (TC-Dash-01).
   { id: 'mock-ca-3', assetType: 'CASH', name: 'Closed account', currentValue: '99999.00', deletedAt: '2026-10-01T00:00:00Z' },
 ];
@@ -157,6 +170,58 @@ export async function mockUpdateValuation(id, value) {
   // A new MANUAL row; earlier rows are never changed.
   history = [...history, { id: `val-${Date.now()}`, assetId: id, value: amount, source: 'MANUAL', valuedAt }];
   return { ...store.find((a) => a.id === id) };
+}
+
+// B23: add / edit / delete. The mock trusts the form's checks (lib/assetForm.js);
+// ?mock=invalid answers 400 with a server field error, like the real API can.
+const DETAIL_FIELDS = [
+  'location', 'purchaseValue', 'purchaseDate', 'form', 'purityKarat', 'weightGrams', 'purchasePrice',
+  'ticker', 'exchange', 'quantity', 'averageBuyPrice', 'accountLabel',
+];
+
+function storedAsset(id, body, previous = {}) {
+  const asset = { id, assetType: body.assetType, valuedAt: new Date().toISOString(), currentValue: body.value };
+  for (const field of DETAIL_FIELDS) asset[field] = body[field] ?? null;
+  const fallback = body.ticker ?? body.accountLabel ?? (body.form ? `Gold ${body.form.toLowerCase()} (${body.purityKarat}K)` : null);
+  asset.name = body.assetName ?? (body.assetName === null ? fallback : previous.name ?? fallback);
+  return asset;
+}
+
+function mockFieldError() {
+  return new ApiError(400, {
+    code: 'VALIDATION_ERROR',
+    message: 'Please correct the highlighted fields.',
+    fields: [{ field: 'value', message: 'Value is too large.' }],
+  });
+}
+
+export async function mockCreateAsset(body) {
+  recordMockCall('POST', '/api/assets', body);
+  await mockDelay();
+  requireMockSession();
+  if (mockMode() === 'invalid') throw mockFieldError();
+  const asset = storedAsset(`mock-new-${Date.now()}`, body);
+  store = [...store, asset];
+  return { success: true, data: { ...asset } };
+}
+
+export async function mockUpdateAsset(id, body) {
+  recordMockCall('PUT', `/api/assets/${id}`, body);
+  await mockDelay();
+  requireMockSession();
+  if (mockMode() === 'invalid') throw mockFieldError();
+  const updated = storedAsset(id, body, ownAsset(id));
+  store = store.map((a) => (a.id === id ? updated : a));
+  return { success: true, data: { ...updated } };
+}
+
+export async function mockDeleteAsset(id) {
+  recordMockCall('DELETE', `/api/assets/${id}`);
+  await mockDelay();
+  requireMockSession();
+  ownAsset(id);
+  store = store.map((a) => (a.id === id ? { ...a, deletedAt: new Date().toISOString() } : a));
+  return { success: true, message: 'Asset soft-deleted successfully' };
 }
 
 export async function mockValuationHistory({ assetId, from, to }) {
