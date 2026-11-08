@@ -33,8 +33,10 @@ test('Assets nav link opens the real estate list with value and last valued date
   await expect(plot).toContainText('Mysuru');
   await expect(plot).toContainText('₹17,00,000.00');
   await expect(plot).toContainText('12 Apr 2026');
-  // Only real estate is listed here; stocks, gold and cash are not.
-  await expect(page.getByText('RELIANCE')).toHaveCount(0);
+  // B23: stocks, gold and cash are listed too, in their own sections.
+  await expect(page.getByTestId('asset')).toHaveCount(6);
+  await expect(page.getByRole('heading', { name: 'RELIANCE', level: 3 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^(Real estate|Stocks|Gold|Cash & bank) \(\d\)$/, level: 2 })).toHaveCount(4);
 });
 
 test('TC-Val-03: updating a value saves it with today\'s date, adds a history row and updates net worth', async ({ page }) => {
@@ -139,10 +141,76 @@ test('a 401 on the assets screen asks the user to log in again', async ({ page }
   await expect(page.getByTestId('property')).toHaveCount(0);
 });
 
-test('empty state when the user has no real estate', async ({ page }) => {
+test('empty state when the user has no assets', async ({ page }) => {
   await page.goto('/?mock=empty#/assets');
-  await expect(page.getByTestId('real-estate-empty')).toContainText('No properties yet');
+  await expect(page.getByTestId('assets-empty')).toContainText('No assets yet');
 });
+
+// B23 (PWM-F-010 to PWM-F-014): add, edit and delete with the mock store.
+test('add a gold asset, edit it, delete it; net worth follows', async ({ page }) => {
+  await page.goto('/#/assets');
+  await page.getByRole('button', { name: 'Add asset' }).click();
+  await page.getByLabel('Asset type').selectOption('GOLD');
+  await page.getByLabel('Form').selectOption('BAR');
+  await page.getByLabel('Purity (karat)').fill('24');
+  await page.getByLabel('Weight (grams)').fill('10');
+  await page.getByLabel('Purchase price (₹)').fill('60,000');
+  await page.getByLabel('Current value (₹)').fill('1,00,000');
+  await page.getByRole('button', { name: 'Add asset' }).click();
+  await expect(page.getByTestId('asset-status')).toHaveText('Gold asset added.');
+  const bar = page.getByTestId('asset').filter({ hasText: 'Gold bar (24K)' });
+  await expect(bar).toContainText('₹1,00,000.00');
+
+  await bar.getByRole('button', { name: 'Edit Gold bar (24K)' }).click();
+  await expect(page.getByLabel('Weight (grams)')).toHaveValue('10');
+  await page.getByLabel('Current value (₹)').fill('2,00,000');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(bar).toContainText('₹2,00,000.00');
+
+  // Dashboard: 1,03,45,000 + 2,00,000.
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Dashboard' }).click();
+  await expect(page.getByTestId('net-worth-value')).toHaveText('₹1,05,45,000.00');
+
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Assets' }).click();
+  await page.getByRole('button', { name: 'Delete Gold bar (24K)' }).click();
+  const dialog = page.getByRole('alertdialog', { name: 'Delete Gold bar (24K)?' });
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  await dialog.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByTestId('asset-status')).toHaveText('Gold bar (24K) was deleted.');
+  await expect(page.getByTestId('asset').filter({ hasText: 'Gold bar (24K)' })).toHaveCount(0);
+
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Dashboard' }).click();
+  await expect(page.getByTestId('net-worth-value')).toHaveText('₹1,03,45,000.00');
+});
+
+for (const width of WIDTHS) {
+  test(`add / edit form and delete dialog fit at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/#/assets');
+    await expect(page.getByTestId('property')).toHaveCount(2);
+    await expectFitsScreen(page);
+
+    for (const type of ['REAL_ESTATE', 'GOLD', 'STOCK', 'CASH']) {
+      if (type === 'REAL_ESTATE') await page.getByRole('button', { name: 'Add asset' }).click();
+      await page.getByLabel('Asset type').selectOption(type);
+      await page.getByRole('button', { name: 'Add asset' }).click(); // empty: shows every error
+      await expect(page.locator('.field-error').first()).toBeVisible();
+      await expectFitsScreen(page);
+    }
+    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    await page.getByRole('button', { name: 'Edit RELIANCE' }).click();
+    await expect(page.getByLabel('Ticker symbol')).toHaveValue('RELIANCE');
+    await expectFitsScreen(page);
+    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    await page.getByRole('button', { name: 'Delete Apartment, Whitefield' }).click();
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await expectFitsScreen(page);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  });
+}
 
 for (const width of WIDTHS) {
   test(`asset screens fit at ${width}px`, async ({ page }) => {
