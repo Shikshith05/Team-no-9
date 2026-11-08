@@ -14,6 +14,7 @@ import {
   nearestIndex,
   niceTicks,
   RANGES,
+  rangeStart,
   toDayNumber,
 } from '../lib/trend.js';
 
@@ -94,7 +95,12 @@ function EmptyTrend({ points }) {
 
 function ChangeSummary({ points, range }) {
   const change = computeChange(points);
-  const period = RANGES.find((r) => r.id === range)?.period ?? `since ${formatLongDate(points[0].date)}`;
+  // "In the past year" is only true when the history goes back that far.
+  const start = rangeStart(range, points[points.length - 1].date);
+  const coversRange = start !== null && points[0].date <= start;
+  const period = coversRange
+    ? RANGES.find((r) => r.id === range).period
+    : `since ${formatLongDate(points[0].date)}`;
   const sign = change.direction === 'up' ? '+' : change.direction === 'down' ? '−' : '';
   const arrow = change.direction === 'up' ? '▲' : change.direction === 'down' ? '▼' : '■';
   const amount = formatINR(change.amount.replace('-', ''));

@@ -1,16 +1,19 @@
 
 import { useState } from 'react';
 import { login } from '../api/auth.js';
+import { fieldErrors } from '../api/http.js';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [fields, setFields] = useState({});
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+    setFields({});
 
     if (!email.trim() || !password) {
       setError('Please enter your email and password.');
@@ -23,6 +26,9 @@ export default function LoginPage() {
       await login(email.trim(), password);
       window.location.hash = '#/';
     } catch (err) {
+      // The backend's own words: 401 invalid credentials, 423 locked with the
+      // retry time (PRJ-SR-005), 400 with messages per field.
+      setFields(fieldErrors(err));
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
@@ -44,8 +50,15 @@ export default function LoginPage() {
               className="input"
               autoComplete="username"
               value={email}
+              aria-invalid={fields.email ? 'true' : undefined}
+              aria-describedby={fields.email ? 'login-email-error' : undefined}
               onChange={(event) => setEmail(event.target.value)}
             />
+            {fields.email && (
+              <p id="login-email-error" className="field-error">
+                {fields.email}
+              </p>
+            )}
           </div>
 
           <div className="field">
@@ -63,12 +76,19 @@ export default function LoginPage() {
               className="input"
               autoComplete="current-password"
               value={password}
+              aria-invalid={fields.password ? 'true' : undefined}
+              aria-describedby={fields.password ? 'login-password-error' : undefined}
               onChange={(event) => setPassword(event.target.value)}
             />
+            {fields.password && (
+              <p id="login-password-error" className="field-error">
+                {fields.password}
+              </p>
+            )}
           </div>
 
           {error && (
-            <p className="form-note" role="alert">
+            <p className="form-error" role="alert">
               {error}
             </p>
           )}

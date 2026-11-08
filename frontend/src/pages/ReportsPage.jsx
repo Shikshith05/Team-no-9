@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiDownload } from '../api/http.js';
 
 export default function ReportsPage() {
   const [status, setStatus] = useState('');
@@ -7,32 +8,11 @@ export default function ReportsPage() {
     setStatus(`Preparing ${format.toUpperCase()} report...`);
 
     try {
-      const token = localStorage.getItem('token');
-
-      if (!token) {
-        setStatus(
-          'Authentication is not connected yet. Sign-in must provide a valid token before exporting.'
-        );
-        return;
-      }
-
-      const response = await fetch(`/api/reports/export/${format}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: format === 'pdf' ? 'application/pdf' : 'text/csv',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          response.status === 401
-            ? 'Your session is missing or expired. Please sign in again.'
-            : `Export failed (HTTP ${response.status}).`
-        );
-      }
-
-      const blob = await response.blob();
+      // PWM-F-033. Token and 401 handling live in http.js, as for every other call.
+      const blob = await apiDownload(
+        `/api/reports/export/${format}`,
+        format === 'pdf' ? 'application/pdf' : 'text/csv',
+      );
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
 
