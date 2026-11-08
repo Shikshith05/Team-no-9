@@ -34,6 +34,7 @@ Status as of 2026-11-07.
 | B20 | none (audit) | README has no run instructions | Shikshith05 | Fixed in PR #81 – pending merge |
 | B21 | none (audit) | Logging in right after logout gives a revoked token | Shikshith05 | Fixed in PR #81 – pending merge |
 | B22 | none (audit) | Asset types lack their required fields; any asset type accepted | Shikshith05 | Fixed in branch `fix/B22-asset-type-fields` – PR pending review |
+| B23 | none (audit) | No way to add, edit or delete assets in the UI | Shikshith05 | Fixed in branch `fix/B23-asset-forms` (on top of B22) – PR pending review |
 
 Open items that block closing #58 (its acceptance criteria say no critical bug may remain open, and the final regression must be repeated):
 - B9 (#67) and B13 (#65) are still open, in PRs #76 and #78.
@@ -197,6 +198,26 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
   - Asset edits do not write a valuations row (SAD 4.5). Only `PUT /api/assets/:id/valuation` does, because a change here would alter the exports that B13 (PR #78) is testing.
   - Another user's asset is 404, not the 403 of PRJ-SR-004 (unchanged from B5).
 - **Tests:** `backend/tests/assetTypes.test.js` (valid create per type, missing and invalid fields per type including purity 0/25, negative weight and bad tickers, unknown types rejected, database CHECKs when the API is bypassed, partial update, type change, cross-user read and update, soft-deleted asset, legacy row completion, dashboard and CSV) and `backend/tests/assetTypesMigration.test.js` (010 applied by the runner to a database with free-text assets and a valuation row, then re-run twice). `tests/helpers.js` fills valid per-type details, so suites that only set name, type and value (including `reports.test.js`) are unchanged. Real-backend Playwright specs updated to send the new fields.
+
+### B23 – No way to add, edit or delete assets in the UI – Fixed in `fix/B23-asset-forms`
+- **Requirement:** PWM-F-014 (TC-Asset-01), PWM-F-010 to PWM-F-013, PWM-F-015; SRS 3.1 (inline validation); SAD 4.8; PWM-NF-004 (TC-UX-01).
+- **Steps to reproduce (before):** log in and open Assets. Only real estate is listed. There is no button to add an asset, and no way to edit or delete one. Gold, stocks and cash can only be created with a direct API call.
+- **Expected:** an "Add asset" form for each of the four classes, plus edit and delete for every asset; the dashboard totals follow (AC-PWM-F-014).
+- **Root cause:** `AssetsPage.jsx` was built for the manual real-estate valuation story (#12) only. The forms waited for the asset APIs, and then for the per-type fields (B22).
+- **Fix:**
+  - `AssetsPage.jsx` lists every asset by class (real estate, stocks, gold, cash, then any pre-B22 row with another type). Each card shows its class's details.
+  - "Add asset" opens `components/AssetForm.jsx`. Its fields change with the type selected (B22's fields).
+  - `lib/assetForm.js` applies the API's rules in the browser, so an error shows next to its input and nothing is sent. Server field errors (SAD format) appear on the same inputs.
+  - The submit button is disabled and reads "Saving…" while the request runs.
+  - Edit opens the same form prefilled and sends `PUT /api/assets/:id`.
+  - Delete opens `components/ConfirmDialog.jsx`, an in-page `alertdialog` (not `window.confirm`): focus starts on Cancel and stays in the dialog, Escape cancels, and server errors show inside it. Confirming sends `DELETE /api/assets/:id`, a soft delete.
+  - After every change, `notifyAssetsChanged()` reloads the list and the dashboard.
+  - All calls go through `http.js`, so a 401 clears the session and goes to the login page.
+- **Tests:**
+  - `frontend/src/lib/assetForm.test.js` and `frontend/src/pages/AssetsPage.test.jsx`: fields per type; client errors with nothing sent; create, edit and delete call the right endpoints with the right bodies; server field errors; 401; delete dialog confirm, cancel, Escape and error; the list reloads.
+  - `frontend/e2e/assets.spec.js` (mock data): add, edit and delete with net worth following, plus the form for every type and the dialog at 360, 768 and 1280 px.
+  - `frontend/e2e-real/assets.spec.js` (real backend): log in, add each type through the form, edit, delete; the dashboard total changes each time.
+  - `docs/responsive-test-log.md` updated.
 
 ## Regression testing
 

@@ -10,20 +10,57 @@
 
 import { apiFetch } from './http.js';
 import { USE_MOCK } from './mock.js';
-import { mockGetAsset, mockListAssets, mockUpdateValuation, mockValuationHistory } from './mockAssets.js';
+import {
+  mockCreateAsset,
+  mockDeleteAsset,
+  mockGetAsset,
+  mockListAssets,
+  mockUpdateAsset,
+  mockUpdateValuation,
+  mockValuationHistory,
+} from './mockAssets.js';
 
 /**
- * GET /api/assets?type=REAL_ESTATE&page=1&limit=200
- * 200 {"items":[{"id":"5f0c9e52-…","assetType":"REAL_ESTATE","name":"Flat, Adyar",
+ * GET /api/assets?type=REAL_ESTATE&page=1&limit=200   (type optional: all types)
+ * 200 {"items":[{"id":1,"assetType":"REAL_ESTATE","name":"Flat, Adyar",
  *                "location":"Chennai","purchaseValue":"6500000.00","purchaseDate":"2021-03-15",
- *                "currentValue":"8200000.00","valuedAt":"2026-06-10T05:30:00Z"}],
+ *                "currentValue":"8200000.00","valuedAt":"2026-06-10T05:30:00Z",
+ *                "form":null,"purityKarat":null,"weightGrams":null,"purchasePrice":null,
+ *                "ticker":null,"exchange":null,"quantity":null,"averageBuyPrice":null,
+ *                "accountLabel":null}],
  *      "page":1,"limit":200,"total":1}
- * Only the caller's non-deleted assets. valuedAt is when currentValue was last set
- * (real_estate_details.estimated_value_updated_at).
+ * Only the caller's non-deleted assets. Fields that don't apply to the type are
+ * null (B22). valuedAt is when the asset last changed.
  */
 export async function listAssets(type) {
   if (USE_MOCK) return mockListAssets(type);
-  return apiFetch(`/api/assets?type=${encodeURIComponent(type)}&page=1&limit=200`);
+  const query = new URLSearchParams({ page: '1', limit: '200' });
+  if (type) query.set('type', type);
+  return apiFetch(`/api/assets?${query}`);
+}
+
+/**
+ * POST /api/assets   (PWM-F-010 to PWM-F-013; body from lib/assetForm.js)
+ * body {"assetType":"GOLD","form":"COIN","purityKarat":22,"weightGrams":"20.000",
+ *       "purchasePrice":"110000.00","value":"120000.00"}
+ * 201 {"success":true,"data":{…the stored row…}}
+ * 400 VALIDATION_ERROR with fields[] | 401
+ */
+export async function createAsset(body) {
+  if (USE_MOCK) return mockCreateAsset(body);
+  return apiFetch('/api/assets', { method: 'POST', body });
+}
+
+/** PUT /api/assets/:id (PWM-F-014): same body as create -> 200 | 400 | 404 | 401 */
+export async function updateAsset(id, body) {
+  if (USE_MOCK) return mockUpdateAsset(id, body);
+  return apiFetch(`/api/assets/${encodeURIComponent(id)}`, { method: 'PUT', body });
+}
+
+/** DELETE /api/assets/:id (PWM-F-014): soft delete -> 200 | 404 | 401 */
+export async function deleteAsset(id) {
+  if (USE_MOCK) return mockDeleteAsset(id);
+  return apiFetch(`/api/assets/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 /** GET /api/assets/:id -> 200 one asset (shape as in the list) | 403 | 404 | 401 */
