@@ -5,7 +5,11 @@ import { app, pool, request, resetDatabase, createLoggedInUser, createAsset } fr
 
 beforeEach(resetDatabase);
 
-const ASSET_KEYS = ["assetType", "currentValue", "id", "location", "name", "purchaseDate", "purchaseValue", "valuedAt"];
+// B22 added the per-type fields (SAD 4.3.3); the B5 fields are unchanged.
+const ASSET_KEYS = [
+  "accountLabel", "assetType", "averageBuyPrice", "currentValue", "exchange", "form", "id", "location", "name",
+  "purchaseDate", "purchasePrice", "purchaseValue", "purityKarat", "quantity", "ticker", "valuedAt", "weightGrams"
+];
 
 describe("authentication", () => {
   it("all three endpoints require a token", async () => {
@@ -35,8 +39,10 @@ describe("GET /api/assets", () => {
       name: "Flat, Adyar",
       purchaseDate: "2021-03-15",
       currentValue: "8200000.00",
-      location: null,
-      purchaseValue: null
+      location: "Chennai",
+      purchaseValue: "4000000.00",
+      ticker: null,
+      purityKarat: null
     });
     expect(item.valuedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
   });

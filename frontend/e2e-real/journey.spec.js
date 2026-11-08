@@ -45,7 +45,14 @@ test('register, log in, use the app, export, log out', async ({ page, request })
   const headers = { Authorization: `Bearer ${token}` };
   const created = await request.post('/api/assets', {
     headers,
-    data: { assetName: 'Flat, Adyar', assetType: 'REAL_ESTATE', value: '8200000.00', purchaseDate: '2021-03-15' },
+    data: {
+      assetName: 'Flat, Adyar',
+      assetType: 'REAL_ESTATE',
+      location: 'Chennai',
+      purchaseValue: '6500000.00',
+      value: '8200000.00',
+      purchaseDate: '2021-03-15',
+    },
   });
   expect(created.status()).toBe(201);
   await page.getByRole('link', { name: 'Assets', exact: true }).click();
