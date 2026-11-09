@@ -7,7 +7,9 @@ const authMiddleware = require("../middleware/authMiddleware");
 // SAD 3.9: Authentication rate limiting (brute-force protection)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.AUTH_RATE_LIMIT ? parseInt(process.env.AUTH_RATE_LIMIT) : 10,
+  max: process.env.NODE_ENV === "test" && !process.env.AUTH_RATE_LIMIT
+    ? 1000
+    : (process.env.AUTH_RATE_LIMIT ? parseInt(process.env.AUTH_RATE_LIMIT) : 10),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
