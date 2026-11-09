@@ -310,3 +310,4 @@ The smoke database was dropped afterwards.
 ### CI
 
 `.github/workflows/main.yml` now runs the backend tests (with a `postgres:16` service) and the frontend unit tests on pushes and pull requests to `main` and `fix/bug-bash`. CI results for this branch are visible once it is pushed.
+| SAD 3.9 | Rate limiting on /api/auth/* | Sateesh | Closed | Added express-rate-limit on auth endpoints with 429 status and env config |
