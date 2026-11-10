@@ -19,6 +19,15 @@ describe('fields per asset type (PWM-F-010 to PWM-F-013)', () => {
   });
 });
 
+describe('market-valued types (B26, PWM-F-020, PWM-F-021)', () => {
+  it('the value hint for gold and stocks says the price feed updates it', () => {
+    const hint = (type) => fieldsFor(type).find((f) => f.name === 'value').hint;
+    expect(hint('GOLD')).toMatch(/gold rate/);
+    expect(hint('STOCK')).toMatch(/market price/);
+    expect([hint('GOLD'), hint('STOCK')].join(' ')).not.toMatch(/not automatic/);
+  });
+});
+
 describe('validateAssetForm', () => {
   it('builds the API body: decimal strings, money with 2 decimals, upper-case ticker', () => {
     const values = { ...initialValues(), ticker: ' infy ', quantity: '12.5', averageBuyPrice: '₹1,450.5', value: '17,400' };

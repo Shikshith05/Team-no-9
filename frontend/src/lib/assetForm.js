@@ -56,7 +56,7 @@ export const TYPE_FIELDS = {
     { name: 'purityKarat' },
     { name: 'weightGrams' },
     { name: 'purchasePrice' },
-    { name: 'value', hint: 'What it is worth today. Market revaluation is not automatic yet.' },
+    { name: 'value', hint: 'What it is worth today. Updated from the daily gold rate when the price feed is set up.' },
     { name: 'assetName', label: 'Name (optional)', required: false },
   ],
   STOCK: [
@@ -64,7 +64,7 @@ export const TYPE_FIELDS = {
     { name: 'exchange' },
     { name: 'quantity' },
     { name: 'averageBuyPrice' },
-    { name: 'value', hint: 'What the holding is worth today. Market revaluation is not automatic yet.' },
+    { name: 'value', hint: 'What the holding is worth today. Updated from the market price when the price feed is set up.' },
     { name: 'assetName', label: 'Name (optional)', required: false },
   ],
   CASH: [

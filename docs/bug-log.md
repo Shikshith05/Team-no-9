@@ -20,7 +20,7 @@ Status as of 2026-11-10 (last updated 2026-11-10).
 | B7 | [#63](https://github.com/Shikshith05/Team-no-9/issues/63) | Fix valuation asset relationship and implement valuation history API | GREESHMA-K77 | Fixed – merged into `fix/bug-bash` via PR #73 |
 | B7b | [#64](https://github.com/Shikshith05/Team-no-9/issues/64) | Restore secure valuation history in CSV and PDF exports | GREESHMA-K77 | Fixed – merged into `fix/bug-bash` via PR #77 |
 | B8 | [#66](https://github.com/Shikshith05/Team-no-9/issues/66) | Prevent one failed ticker from stopping the entire stock refresh | Rushikesh9742 | Fixed – merged into `fix/bug-bash` via PR #72 |
-| B9 | [#67](https://github.com/Shikshith05/Team-no-9/issues/67) | Correct market-price cache semantics and persist valuation history during refresh | Rushikesh9742 | Open – not in this release; known limitation (stock/gold not auto-revalued in `assets`). PR #76 |
+| B9 | [#67](https://github.com/Shikshith05/Team-no-9/issues/67) | Correct market-price cache semantics and persist valuation history during refresh | Rushikesh9742 | Superseded by B26 (PR #76 not merged) |
 | B10 | [#68](https://github.com/Shikshith05/Team-no-9/issues/68) | Remove obsolete frontend valuation worker and duplicate root-level services | Rushikesh9742 | Fixed – merged into `fix/bug-bash` via PR #71 |
 | B11 | [#61](https://github.com/Shikshith05/Team-no-9/issues/61) | Fix dashboard endpoint mismatch between frontend and backend | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #80 |
 | B12 | [#69](https://github.com/Shikshith05/Team-no-9/issues/69) | Persist dashboard alerts per user using backend storage | Rushikesh9742 | Fixed – merged into `fix/bug-bash` via PR #74 |
@@ -37,6 +37,7 @@ Status as of 2026-11-10 (last updated 2026-11-10).
 | B23 | none (audit) | No way to add, edit or delete assets in the UI | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #84 |
 | B24 | none (audit) | Forgot / reset password endpoints don't exist | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #85 |
 | B25 | none | No rate limiting on `/api/auth/*` (SAD 3.9) | Sateesh5298 | Open – changes requested, not in this release. PR #86 |
+| B26 | none (B9, #67) | Market refresh never revalues stock and gold in `assets` | Shikshith05 | Fixed – branch `fix/B26-market-revalue-assets`, PR into `fix/bug-bash` (supersedes PR #76) |
 
 Release status (`fix/bug-bash` → `main`):
 - Everything above marked "Fixed" is in `fix/bug-bash` and was checked by the final regression on 2026-11-10 (below).
@@ -250,7 +251,60 @@ Release status (`fix/bug-bash` → `main`):
 - **Steps to reproduce:** send many `POST /api/auth/login` (or `forgot-password`) requests in a row. None is throttled; only the per-account lockout (PRJ-SR-005) applies.
 - **Owner / fix:** Sateesh5298, PR #86. Changes were requested in review, so it is not part of the Sprint 3 release.
 
+### B26 – Market refresh never revalues stock and gold in `assets` (B9, #67) – Fixed, supersedes PR #76
+- **Requirement:** PWM-F-020 and PWM-F-021 (High; TC-Val-01, TC-Val-02), PWM-F-023 (High), PWM-F-024 (Medium, stale flag only); SAD 4.4 `price_cache`, 4.5, 4.6.
+- **Steps to reproduce (before):** add a stock (RELIANCE, 10 shares, value 28000) and 22K gold (20 g, value 120000). Start the backend with both price feed URLs set. The refresh logs success, but `GET /api/assets` still shows 28000 and 120000, `GET /api/valuations/history` has no MARKET rows, and the dashboard total does not change. `PUT /api/assets/:id/valuation` refuses stock and gold (422 MARKET_VALUED), so only editing the asset can change their value.
+- **Root cause:** `services/marketRefresh.js` read the old per-type tables (`stock_assets`, `gold_assets`) from migrations 002 and 004. The app has written to the unified `assets` table since migration 007, so the refresh found no holdings, or revalued rows nothing reads. It never wrote to `valuations`. PR #76 still used the old tables and would put their ids into `valuations.asset_id`, which has referenced `assets(id)` since migration 009.
+- **Fix:**
+  - Migration `012_price_cache.sql` adds the SAD 4.4 `price_cache` table, with one row per instrument: `STOCK:<exchange>:<ticker>` (price per share) or `GOLD:<karat>K` (rate per gram). It stores the last good price, `price_as_of`, `last_status` (OK/FAILED) and `last_error`. The migration is re-runnable. `market_price_cache` and the per-type tables are kept, but nothing writes to them any more.
+  - The refresh reads the non-deleted STOCK and GOLD holdings in `assets` (all users; it runs in the scheduler, not for a request). It fetches each distinct symbol once, and the gold rate once (SAD 4.6).
+  - For each instrument, one transaction updates `price_cache`, sets `assets.value` and writes one `valuations` row per holding with the real `asset_id`, `unit_price` and source `MARKET`.
+  - Stock value = quantity × price. Gold value = weight × rate24 × karat / 24 (SAD 4.5: the feed gives the 24K rate per gram). Both are calculated in PostgreSQL NUMERIC and rounded to 2 decimals.
+  - If one instrument fails (HTTP error, timeout, a price of 0 or below, or a database error), its holdings keep their value and the cache keeps its last price. Its row is marked FAILED and the other instruments still refresh (B8).
+  - `GET /api/dashboard` sets `hasStaleData` when one of the caller's own holdings uses a FAILED price. The old class-level check on `market_price_cache` is kept for rows left from before.
+  - The scheduler still starts only when both feed URLs are set (https only), so without them the app works as before. The default interval is now once a day (PWM-F-020), not 60 seconds, because every run now writes one history row per holding. `.env.example` is updated to match.
+  - The gold and stock form hints no longer say "Market revaluation is not automatic yet".
+  - Reused from PR #76: the cache holds the per-unit price, the valuation row carries `unit_price`, and writes are transactional.
+- **Not done (outside this bug):** retries with backoff and `isStale`/`priceAsOf` on each asset (PWM-F-024, Medium), trading-day calendar, manual refresh endpoint, admin refresh.
+- **Tests:** `backend/tests/marketRefresh.test.js`, with the providers stubbed:
+  - quantity × price for several users, exchanges and a shared symbol, with one fetch per symbol;
+  - NUMERIC rounding;
+  - soft-deleted holdings untouched;
+  - one failed ticker keeps its value and last price, is flagged stale for its holder only, and the next success clears the flag;
+  - invalid prices; values visible through the asset, history and dashboard APIs;
+  - feed not configured, and plain-http feed refused;
+  - gold 18K, 22K and 24K from the 24K rate, with exact-rate rounding;
+  - gold feed failure; stocks and gold refreshed independently;
+  - a scheduler run with no feeds changes nothing and the API keeps working;
+  - migration 012 re-run on existing data.
+
+  B8's original test mocked queries on `stock_assets`. It now runs against the real database with the same assertions. Frontend: `src/lib/assetForm.test.js` checks the hint text. Also checked by hand: the backend with a local HTTPS stub feed revalued RELIANCE to 29,005.00 and 22K gold to 132,000.00, wrote MARKET history and updated the dashboard total, and a failing ticker was flagged only for its holder.
+
 ## Regression testing
+
+### Final regression – 2026-11-10 (B26)
+
+Run on `fix/B26-market-revalue-assets` at `5c076bd` (`fix/bug-bash` at `adf990a` plus B26). Windows 11, Node 22.19.0, PostgreSQL 16 (Docker).
+
+| Suite | Before (`adf990a`) | After |
+|---|---|---|
+| Backend API (`npm test`, throwaway `postgres:16`, database `*_test`) | 206 passed | **224 passed** in 17 files, 13 migrations |
+| Frontend unit (`npm test`) | 110 passed | **111 passed** in 11 files |
+| Frontend lint and build | pass | pass |
+| Playwright, mock data (`test:e2e`) | not run | **61 of 61 passed** |
+| Playwright, real backend, local dev servers (`test:e2e:real`) | 9 of 9 passed | **9 of 9 passed** |
+| Playwright, real backend, through the HTTPS gateway | not run | **8 passed, 1 skipped** (password reset: production logs no link, see "Known limitations") |
+
+**Docker** (README "Run with Docker", local `.env` and `./certs`, existing database volume): `docker compose up -d --build` left postgres, backend and gateway healthy. Migration 012 was applied to the existing data, the old tables were kept, and the scheduler stayed off with no price feeds configured. Through `https://localhost`:
+- `GET /api/health` returned 200, and plain HTTP redirected with 301.
+- Register and login worked.
+- One asset of each type was created, then edited, revalued manually (history row written) and deleted; the dashboard total followed every change.
+- CSV and PDF exports worked.
+- Forgot password returned 202, and the token was rejected after logout.
+
+`docker compose down` was run without `-v`, so the volume was kept.
+
+**B26 manual check:** local dev backend with an HTTPS stub price feed. See B26 above.
 
 ### Final regression – 2026-11-10
 
@@ -282,7 +336,7 @@ Run on `fix/bug-bash` at `f6cffbba8f81f57e0a03d2ff2a4d080400f0a939` ("Merge pull
 | `docker compose down` (without `-v`); database volume kept | ✅ |
 
 ### Known limitations in this release
-- **B9 (#67, PR #76):** stock and gold assets are not revalued automatically in `assets`; their value is what the user entered.
+- **B9 (#67, PR #76):** fixed by B26 once merged. Until a price provider is configured (`STOCK_PRICE_API_URL`, `GOLD_PRICE_API_URL`), the scheduler stays off and stock and gold keep the value the user entered.
 - **B25 (PR #86):** no rate limiting on `/api/auth/*` (SAD 3.9).
 - **No email service** for password-reset links. Outside production the link is printed to the backend console; in production (including the Docker setup) nothing is sent or logged, so users cannot reset their password until an email provider is added.
 - No admin module.
