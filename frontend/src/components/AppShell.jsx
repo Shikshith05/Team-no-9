@@ -5,7 +5,6 @@ const NAV = [
   { label: 'Dashboard', href: '#/' },
   { label: 'Assets', href: '#/assets' },
   { label: 'Reports', href: '#/reports' },
-  { label: 'Settings', href: '#/settings' },
 ];
 
 export default function AppShell({ children, current, variant }) {
