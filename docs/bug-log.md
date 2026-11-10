@@ -334,4 +334,56 @@ Run on `fix/bug-bash` at `f6cffbba8f81f57e0a03d2ff2a4d080400f0a939` ("Merge pull
 | postgres, backend and gateway healthy | ✅ |
 | `GET /api/health` | ✅ `{"status":"ok"}` |
 | `http://localhost` redirects to https | ✅ 301 → `https://localhost/` |
-| Register
+| Register, then login | ✅ 201, 200 with JWT |
+| Create one asset of each type (REAL_ESTATE, GOLD, STOCK, CASH) | ✅ 201 × 4 |
+| `GET /api/dashboard`: totals and allocation | ✅ net worth 5,100,000.00; allocation 98.05 + 1.37 + 0.31 + 0.27 = 100.00 |
+| Manual valuation, then `GET /api/valuations/history` | ✅ 200, new value in the history |
+| CSV export / PDF export | ✅ `text/csv` with the assets / valid `application/pdf` |
+| Forgot password | ✅ 202 |
+| Reset link in `docker compose logs backend` (production config, `NODE_ENV=production`) | ❌ by design: in production only `PASSWORD_RESET_REQUESTED` with the user id is logged, and there is no email service, so **reset links cannot be delivered in the Docker deployment**. See "Known limitations". |
+| Reset flow, re-run with a temporary, uncommitted compose override `NODE_ENV=development` for the backend (no app code changed; override removed afterwards and the backend restarted with `NODE_ENV=production`) | ✅ reset link in the backend log → reset 200 → old JWT rejected (401) → link cannot be reused (400) → old password rejected (401) → login with the new password 200 → logout 200 → token rejected after logout (401) |
+| UI through the gateway (Playwright, certificate errors ignored): login, dashboard, assets and reports pages render | ✅ |
+| `docker compose down` (without `-v`); database volume kept | ✅ |
+
+### Known limitations in this release
+- **B9 (#67, PR #76):** fixed by B26 once merged. Until a price provider is configured (`STOCK_PRICE_API_URL`, `GOLD_PRICE_API_URL`), the scheduler stays off and stock and gold keep the value the user entered.
+- **B25 (PR #86):** no rate limiting on `/api/auth/*` (SAD 3.9).
+- **No email service** for password-reset links. Outside production the link is printed to the backend console; in production (including the Docker setup) nothing is sent or logged, so users cannot reset their password until an email provider is added.
+- No admin module.
+- No percentage-threshold alerts (only price alerts).
+- No performance tests.
+- Another user's asset returns 404, not the 403 of PRJ-SR-004.
+- Authentication uses a Bearer token in `localStorage`, not an httpOnly cookie (deviation from SAD 4.3.1, see `docs/auth-decision.md`).
+- Stock tickers are checked by format only; there is no symbol master.
+
+### 2026-11-07: PRs #79, #80, #81 and #82 merged locally
+
+Run on `origin/fix/bug-bash` (`9ade819`) with the four PRs merged in that order, without conflicts. Windows 11, Node 22.19.0, PostgreSQL 16.15 and Docker 29. **This is not the final regression for #58:** PRs #76 and #78 are not included, and it must be repeated on `fix/bug-bash` after all of them are merged.
+
+| Suite | Before | After |
+|---|---|---|
+| Backend API (`npm test`) | 95 passed | **163 passed** in 14 files |
+| Frontend unit (`npm test`) | 48 passed | **82 passed** in 8 files |
+| Frontend lint and build | pass | pass |
+| Playwright, mock data (`npm run test:e2e`) | 1 of 57 passed | **57 of 57 passed** |
+| Playwright, real backend, local (`npm run test:e2e:real`) | none | **7 of 7 passed**, 3 runs in a row |
+| Playwright, real backend, through the HTTPS gateway | none | **7 of 7 passed** |
+| `npm audit --omit=dev` in `backend` | 1 high | **0** |
+
+Backend test files: `alerts` (8), `assetEndpoints` (20), `assets` (7), `auth` (9), `authHardening` (20), `dashboard` (39), `emailNormalization` (8), `errorFormat` (11), `health` (4), `marketRefresh` (1), `migrate` (5), `registrationValidation` (18), `reports` (5), `valuations` (8).
+
+**Manual gateway checks:** TLS 1.0 and 1.1 refused, 1.2 and 1.3 accepted; HTTP redirects with 301; only ports 80 and 443 published; security headers present once each, with no CSP violations in the app; database outage gives 503 with no API restart, then recovers; data survives `down` and `up`. Full list in PR #82.
+
+**Trial merges with the open PRs:** #76 merges cleanly on top of the four. #78 conflicts in `backend/tests/reports.test.js` with `fix/bug-bash` even without them, because of #77, so it needs rebasing first.
+
+### 2026-11-01: before the teammates' fixes
+
+Run on 2026-11-01 on `fix/bug-bash` (after the B14, B3, B4, B6 and B5 commits), Windows 11, Node 22.19.0, PostgreSQL 16.15 (WSL Ubuntu 22.04).
+The teammates' fixes (B1, B2, B7, B7b, B11, B13, B15) and Rushikesh's untracked bugs are not merged yet, so the final regression in #58 must be repeated after their PRs land in `fix/bug-bash`.
+
+### Automated suites
+
+| Suite | Command | Result |
+|---|---|---|
+| Backend API (Vitest + Supertest, real PostgreSQL) | `cd backend && npm ci && npm test` | **76 passed** in 7 files (before this branch: no tests; `npm test` exited 1) |
+| Frontend unit (Vitest) | `cd frontend && npm ci && npm 

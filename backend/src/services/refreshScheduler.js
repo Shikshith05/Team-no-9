@@ -3,8 +3,12 @@ const {
   refreshAllMarketPrices
 } = require("./marketRefresh");
 
+// PWM-F-020: configurable interval, default once a day. B26: each run now
+// writes a MARKET valuation row per holding, so the old 60-second default would
+// add 1,440 history rows per holding per day.
+const DEFAULT_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const REFRESH_INTERVAL_MS = Number(
-  process.env.VALUATION_REFRESH_INTERVAL_MS || 60000
+  process.env.VALUATION_REFRESH_INTERVAL_MS || DEFAULT_REFRESH_INTERVAL_MS
 );
 
 let refreshTimer = null;
