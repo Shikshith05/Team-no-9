@@ -9,7 +9,6 @@ import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
-import PlaceholderPage from './pages/PlaceholderPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
 import { USE_MOCK } from './api/mock.js';
@@ -32,7 +31,6 @@ const ROUTES = [
     render: ({ params }) => <HistoryPage assetId={params.id} />,
   },
   { path: '/reports', title: 'Reports', nav: 'Reports', render: () => <ReportsPage /> },
-  { path: '/settings', title: 'Settings', nav: 'Settings', render: () => <PlaceholderPage title="Settings" /> },
   { path: '/login', title: 'Log in', layout: 'auth', render: () => <LoginPage /> },
   { path: '/register', title: 'Register', layout: 'auth', render: () => <RegisterPage /> },
   { path: '/forgot-password', title: 'Reset your password', layout: 'auth', render: () => <ForgotPasswordPage /> },

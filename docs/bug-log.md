@@ -38,6 +38,7 @@ Status as of 2026-11-10 (last updated 2026-11-10).
 | B24 | none (audit) | Forgot / reset password endpoints don't exist | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #85 |
 | B25 | none | No rate limiting on `/api/auth/*` (SAD 3.9) | Sateesh5298 | Open – changes requested, not in this release. PR #86 |
 | B26 | none (B9, #67) | Market refresh never revalues stock and gold in `assets` | Shikshith05 | Fixed – branch `fix/B26-market-revalue-assets`, PR into `fix/bug-bash` (supersedes PR #76) |
+| B27 | none (audit) | Settings menu showed an unbuilt placeholder page | Shikshith05 | Fixed – branch `fix/B27-remove-settings-placeholder`, PR into `main` |
 
 Release status (`fix/bug-bash` → `main`):
 - Everything above marked "Fixed" is in `fix/bug-bash` and was checked by the final regression on 2026-11-10 (below).
@@ -279,6 +280,13 @@ Release status (`fix/bug-bash` → `main`):
   - migration 012 re-run on existing data.
 
   B8's original test mocked queries on `stock_assets`. It now runs against the real database with the same assertions. Frontend: `src/lib/assetForm.test.js` checks the hint text. Also checked by hand: the backend with a local HTTPS stub feed revalued RELIANCE to 29,005.00 and 22K gold to 132,000.00, wrote MARKET history and updated the dashboard total, and a failing ticker was flagged only for its holder.
+
+### B27 – Settings menu showed an unbuilt placeholder page – Fixed
+- **Type:** UI clean-up. In the SRS (2.3) and SAD (3.4, 4.8), settings belong to the Admin module, which is not implemented (see "Known limitations").
+- **Steps to reproduce (before):** log in and click Settings in the top navigation. The page only says "This screen isn't built yet".
+- **Root cause:** a Sprint 2 placeholder route and nav item were never removed.
+- **Fix:** removed the Settings nav item (`AppShell.jsx`), the `/settings` route (`App.jsx`) and the now unused `PlaceholderPage.jsx`. `#/settings` is now treated like any other unknown route: "Page not found" when logged in, and the login page when logged out.
+- **Tests:** `frontend/e2e/navigation.spec.js` checks that the nav shows only Dashboard, Assets and Reports, and that `#/settings` shows "Page not found" like any unknown route.
 
 ## Regression testing
 
