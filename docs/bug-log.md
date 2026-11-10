@@ -282,6 +282,30 @@ Release status (`fix/bug-bash` → `main`):
 
 ## Regression testing
 
+### Final regression – 2026-11-10 (B26)
+
+Run on `fix/B26-market-revalue-assets` at `5c076bd` (`fix/bug-bash` at `adf990a` plus B26). Windows 11, Node 22.19.0, PostgreSQL 16 (Docker).
+
+| Suite | Before (`adf990a`) | After |
+|---|---|---|
+| Backend API (`npm test`, throwaway `postgres:16`, database `*_test`) | 206 passed | **224 passed** in 17 files, 13 migrations |
+| Frontend unit (`npm test`) | 110 passed | **111 passed** in 11 files |
+| Frontend lint and build | pass | pass |
+| Playwright, mock data (`test:e2e`) | not run | **61 of 61 passed** |
+| Playwright, real backend, local dev servers (`test:e2e:real`) | 9 of 9 passed | **9 of 9 passed** |
+| Playwright, real backend, through the HTTPS gateway | not run | **8 passed, 1 skipped** (password reset: production logs no link, see "Known limitations") |
+
+**Docker** (README "Run with Docker", local `.env` and `./certs`, existing database volume): `docker compose up -d --build` left postgres, backend and gateway healthy. Migration 012 was applied to the existing data, the old tables were kept, and the scheduler stayed off with no price feeds configured. Through `https://localhost`:
+- `GET /api/health` returned 200, and plain HTTP redirected with 301.
+- Register and login worked.
+- One asset of each type was created, then edited, revalued manually (history row written) and deleted; the dashboard total followed every change.
+- CSV and PDF exports worked.
+- Forgot password returned 202, and the token was rejected after logout.
+
+`docker compose down` was run without `-v`, so the volume was kept.
+
+**B26 manual check:** local dev backend with an HTTPS stub price feed. See B26 above.
+
 ### Final regression – 2026-11-10
 
 Run on `fix/bug-bash` at `f6cffbba8f81f57e0a03d2ff2a4d080400f0a939` ("Merge pull request #78"), which contains every fix listed as merged into `fix/bug-bash` above. Windows 11, Node 22.19.0, PostgreSQL 16 (Docker), Docker 29.9.2.
