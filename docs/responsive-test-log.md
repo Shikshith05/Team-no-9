@@ -36,7 +36,9 @@ The trend chart is also checked with its tooltip open at the left edge, the midd
 | Assets: value saved confirmation (#12) | Pass | Pass | Pass | Automated, with a ₹1,23,45,67,890.50 value |
 | Assets: valuation history (#12) | Pass | Pass | Pass | Automated, 4 rows |
 | Assets: 403 / 404 / "log in again" / empty states (#12) | n/a | n/a | Pass | Automated at 1280px only; simple text cards like the dashboard notices |
-| Add / edit / delete asset forms | n/a | n/a | n/a | Not built yet (asset issues). Retest when they are merged. |
+| Assets: all four classes listed by section (B23) | Pass | Pass | Pass | Automated |
+| Add / edit asset form, every type with all errors shown (B23) | Pass | Pass | Pass | Automated; single column at every width. 360px light and dark and 1280px also checked by screenshot (2026-11-08) |
+| Delete confirmation dialog (B23) | Pass | Pass | Pass | Automated; fits inside the screen with a 16px margin. Screenshot-checked at 360px dark and 1280px |
 | Login (placeholder, #32) | Pass | Pass | Pass | Automated. Sign-in itself isn't wired up until the auth API exists |
 | Forgot password: form, inline error, "check your email" (#32) | Pass | Pass | Pass | Automated |
 | Reset password: form with errors, success, expired link (#32) | Pass | Pass | Pass | Automated; invalid / used links share the expired-link layout |

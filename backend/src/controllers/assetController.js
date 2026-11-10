@@ -1,11 +1,11 @@
 ﻿const pool = require("../config/db");
 const { notFound, unprocessable, validationError } = require("../utils/errors");
+const { DETAIL_COLUMNS, FIELDS, validateAsset } = require("../utils/assetValidation");
 
 // Errors are thrown and turned into the SAD error format by errorHandler
 // (src/utils/errors.js). Input is validated here so that bad requests get
 // 400 VALIDATION_ERROR with field messages instead of a database error.
 
-const MAX_VALUE = 9999999999999.99; // assets.value is NUMERIC(15, 2)
 const MAX_INT_ID = 2147483647; // assets.id is SERIAL (INT)
 
 const assetNotFound = () => notFound("Asset not found.");
@@ -16,106 +16,106 @@ function parseAssetId(raw) {
   return Number(raw);
 }
 
-function checkText(fields, field, value, label, maxLength, required) {
-  if (value === undefined || value === null) {
-    if (required) fields.push({ field, message: `${label} is required.` });
-    return;
-  }
-  if (typeof value !== "string" || value.trim() === "") {
-    fields.push({ field, message: `${label} must not be empty.` });
-  } else if (value.trim().length > maxLength) {
-    fields.push({ field, message: `${label} must be at most ${maxLength} characters.` });
-  }
-}
+// B22: the columns a create or update writes, in a fixed order.
+const WRITE_COLUMNS = ["asset_type", "asset_name", "value", "purchase_date", ...DETAIL_COLUMNS];
 
-function checkValue(fields, field, value, required) {
-  if (value === undefined || value === null || value === "") {
-    if (required) fields.push({ field, message: "Value is required." });
-    return;
-  }
-  const number = Number(value);
-  if (typeof value === "boolean" || !Number.isFinite(number)) {
-    fields.push({ field, message: "Value must be a number." });
-  } else if (number < 0) {
-    fields.push({ field, message: "Value cannot be negative." });
-  } else if (number > MAX_VALUE) {
-    fields.push({ field, message: "Value is too large." });
-  } else if (!/^\d+(\.\d{1,2})?$/.test(String(value).trim())) {
-    fields.push({ field, message: "Value can have at most 2 decimal places." });
-  }
-}
+// Body fields that PUT may change. Anything else in the body is ignored.
+const EDITABLE_FIELDS = ["assetType", ...Object.keys(FIELDS)];
 
-function checkDate(fields, field, value) {
-  if (value === undefined || value === null || value === "") return;
-  const valid =
-    typeof value === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-    !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
-    new Date(`${value}T00:00:00Z`).toISOString().startsWith(value);
-  if (!valid) fields.push({ field, message: "Purchase date must be a valid date (YYYY-MM-DD)." });
-}
+// The stored asset in the request's field names, so a PUT body can be merged over it.
+const STORED_AS_INPUT = `
+  asset_type AS "assetType",
+  asset_name AS "assetName",
+  value::TEXT AS value,
+  TO_CHAR(purchase_date, 'YYYY-MM-DD') AS "purchaseDate",
+  location,
+  purchase_value::TEXT AS "purchaseValue",
+  form,
+  purity_karat AS "purityKarat",
+  weight_grams::TEXT AS "weightGrams",
+  purchase_price::TEXT AS "purchasePrice",
+  ticker,
+  exchange,
+  quantity::TEXT AS quantity,
+  average_buy_price::TEXT AS "averageBuyPrice",
+  account_label AS "accountLabel"
+`;
 
-// Story #9: Create Asset (Strictly req.user.id)
+// POST /api/assets (PWM-F-010 to PWM-F-013, PWM-F-015; SAD 4.3.3). assetType
+// selects the required fields (utils/assetValidation.js). The owner is always
+// the caller. Response shape unchanged: 201 { success, data: <assets row> }.
 exports.createAsset = async (req, res) => {
-  const { assetName, assetType, value, purchaseDate } = req.body;
   const userId = req.user.id; // Strictly from authenticated token
 
-  const fields = [];
-  checkText(fields, "assetName", assetName, "Asset name", 255, true);
-  checkText(fields, "assetType", assetType, "Asset type", 100, true);
-  checkValue(fields, "value", value, true);
-  checkDate(fields, "purchaseDate", purchaseDate);
+  const { fields, row } = validateAsset(req.body || {});
   if (fields.length > 0) throw validationError(fields);
 
-  const query = `
-    INSERT INTO assets (user_id, asset_name, asset_type, value, purchase_date)
-    VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_DATE))
-    RETURNING *;
-  `;
-  const result = await pool.query(query, [
-    userId,
-    assetName.trim(),
-    assetType.trim(),
-    Number(value),
-    purchaseDate || null
-  ]);
+  const placeholders = WRITE_COLUMNS.map((column, i) =>
+    column === "purchase_date" ? `COALESCE($${i + 2}::DATE, CURRENT_DATE)` : `$${i + 2}`
+  );
+  const result = await pool.query(
+    `INSERT INTO assets (user_id, ${WRITE_COLUMNS.join(", ")})
+     VALUES ($1, ${placeholders.join(", ")})
+     RETURNING *`,
+    [userId, ...WRITE_COLUMNS.map((column) => row[column])]
+  );
 
   res.status(201).json({ success: true, data: result.rows[0] });
 };
 
-// Story #8: Update Asset (Strictly req.user.id & active assets)
+// PUT /api/assets/:id (PWM-F-014). Partial update: fields left out keep their
+// stored value, and the result must be a complete, valid asset of its (possibly
+// new) type, so an asset created before B22 has to be completed on its first
+// edit. Changing the type clears the fields of the old type. Only the caller's
+// non-deleted assets can be changed; another user's asset is 404.
+// The value change is not written to `valuations` here (SAD 4.5 asks for it);
+// only PUT /api/assets/:id/valuation records history. See docs/bug-log.md, B22.
 exports.updateAsset = async (req, res) => {
   const id = parseAssetId(req.params.id);
-  const { assetName, assetType, value } = req.body;
   const userId = req.user.id;
+  const body = req.body || {};
 
-  const fields = [];
-  checkText(fields, "assetName", assetName, "Asset name", 255, false);
-  checkText(fields, "assetType", assetType, "Asset type", 100, false);
-  checkValue(fields, "value", value, false);
-  if (fields.length > 0) throw validationError(fields);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
 
-  const query = `
-    UPDATE assets
-    SET asset_name = COALESCE($1, asset_name),
-        asset_type = COALESCE($2, asset_type),
-        value = COALESCE($3, value),
-        updated_at = NOW()
-    WHERE id = $4 AND user_id = $5 AND deleted_at IS NULL
-    RETURNING *;
-  `;
-  const result = await pool.query(query, [
-    assetName == null ? null : assetName.trim(),
-    assetType == null ? null : assetType.trim(),
-    value == null || value === "" ? null : Number(value),
-    id,
-    userId
-  ]);
+    const current = await client.query(
+      `SELECT ${STORED_AS_INPUT} FROM assets
+       WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+       FOR UPDATE`,
+      [id, userId]
+    );
+    // Another user's asset looks exactly like a missing one.
+    if (current.rows.length === 0) throw assetNotFound();
 
-  // Another user's asset looks exactly like a missing one.
-  if (result.rows.length === 0) throw assetNotFound();
+    const merged = { ...current.rows[0] };
+    for (const field of EDITABLE_FIELDS) {
+      if (body[field] !== undefined) merged[field] = body[field];
+    }
 
-  res.status(200).json({ success: true, data: result.rows[0] });
+    const { fields, row } = validateAsset(merged);
+    if (fields.length > 0) throw validationError(fields);
+
+    const assignments = WRITE_COLUMNS.map((column, i) =>
+      column === "purchase_date" ? `purchase_date = COALESCE($${i + 1}::DATE, purchase_date)` : `${column} = $${i + 1}`
+    );
+    const n = WRITE_COLUMNS.length;
+    const result = await client.query(
+      `UPDATE assets
+       SET ${assignments.join(", ")}, updated_at = NOW()
+       WHERE id = $${n + 1} AND user_id = $${n + 2} AND deleted_at IS NULL
+       RETURNING *`,
+      [...WRITE_COLUMNS.map((column) => row[column]), id, userId]
+    );
+
+    await client.query("COMMIT");
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 // Story #8 & SAD: Soft Delete Asset (Sets deleted_at timestamp)
@@ -166,10 +166,13 @@ exports.getDashboardSummary = async (req, res) => {
 // B5 (#54): read and manual-valuation endpoints, matching the contract in
 // frontend/src/api/assets.js (field names, pagination, decimal strings).
 //
-// The unified `assets` table has no location or purchase value, so those are
-// null; valuedAt is the row's updated_at (when the value last changed).
+// valuedAt is the row's updated_at (when the asset last changed).
 // assetType is returned upper case (REAL_ESTATE, as the frontend expects) and
-// the ?type= filter ignores case, because existing rows use both spellings.
+// the ?type= filter ignores case, because rows that migration 010 could not map
+// keep their old spelling.
+// B22: the per-type fields follow SAD 4.3.3; a field that does not apply to the
+// asset's type is null. Money and weight are decimal strings; quantity drops
+// trailing zeros ("10", as in the SAD example); purityKarat is a number.
 // ---------------------------------------------------------------------------
 
 const DEFAULT_PAGE_SIZE = 50; // SAD 4.3.1: page/limit default 1 and 50, max 200
@@ -181,11 +184,20 @@ const ASSET_COLUMNS = `
   id,
   UPPER(asset_type) AS "assetType",
   asset_name AS name,
-  NULL::TEXT AS location,
-  NULL::TEXT AS "purchaseValue",
+  location,
+  purchase_value::TEXT AS "purchaseValue",
   TO_CHAR(purchase_date, 'YYYY-MM-DD') AS "purchaseDate",
   value::TEXT AS "currentValue",
-  TO_CHAR(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS "valuedAt"
+  TO_CHAR(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS "valuedAt",
+  form,
+  purity_karat::INT AS "purityKarat",
+  weight_grams::TEXT AS "weightGrams",
+  purchase_price::TEXT AS "purchasePrice",
+  ticker,
+  exchange,
+  TRIM_SCALE(quantity)::TEXT AS quantity,
+  average_buy_price::TEXT AS "averageBuyPrice",
+  account_label AS "accountLabel"
 `;
 
 function parsePositiveInt(fields, field, raw, fallback, max) {
@@ -245,51 +257,82 @@ exports.getAsset = async (req, res) => {
   res.status(200).json(result.rows[0]);
 };
 
-// PUT /api/assets/:id/valuation  body { value: "8500000.00" }
-// Sets a new manual value and returns the updated asset.
+// PUT /api/assets/:id/valuation
+// Updates the asset's manual value and records its history
+// in the same database transaction.
 exports.updateValuation = async (req, res) => {
   const id = parseAssetId(req.params.id);
   const userId = req.user.id;
   const { value } = req.body;
 
   const text = typeof value === "number" ? String(value) : value;
+
   const valid =
     typeof text === "string" &&
     /^\d+(\.\d{1,2})?$/.test(text.trim()) &&
     Number(text) <= Number(MAX_MANUAL_VALUE);
+
   if (!valid) {
     throw validationError(
-      [{ field: "value", message: "must be an amount from 0 to 10000000000.00 with at most 2 decimals" }],
+      [
+        {
+          field: "value",
+          message:
+            "must be an amount from 0 to 10000000000.00 with at most 2 decimals"
+        }
+      ],
       "Check the highlighted field."
     );
   }
 
   const client = await pool.connect();
+
   try {
     await client.query("BEGIN");
+
     const current = await client.query(
-      "SELECT UPPER(asset_type) AS type FROM assets WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL FOR UPDATE",
+      `SELECT
+         asset_type,
+         UPPER(asset_type) AS type
+       FROM assets
+       WHERE id = $1
+         AND user_id = $2
+         AND deleted_at IS NULL
+       FOR UPDATE`,
       [id, userId]
     );
-    if (current.rows.length === 0) throw assetNotFound();
+
+    if (current.rows.length === 0) {
+      throw assetNotFound();
+    }
+
     if (MARKET_VALUED_TYPES.has(current.rows[0].type)) {
-      throw unprocessable("MARKET_VALUED", "This asset is valued from market prices.");
+      throw unprocessable(
+        "MARKET_VALUED",
+        "This asset is valued from market prices."
+      );
     }
 
     const updated = await client.query(
-      `UPDATE assets SET value = $1, updated_at = NOW()
-       WHERE id = $2 AND user_id = $3
+      `UPDATE assets
+       SET value = $1,
+           updated_at = NOW()
+       WHERE id = $2
+         AND user_id = $3
        RETURNING ${ASSET_COLUMNS}`,
       [text.trim(), id, userId]
     );
 
-    // TODO(B7, #63): also INSERT a MANUAL row into valuations here, in this
-    // transaction. Not done yet on purpose: valuations.asset_id still refers
-    // to the per-type tables (real_estate_assets, ...), not assets(id), so a
-    // row written with this id could be attributed to someone else's asset.
-    // B7 moves valuations.asset_id to assets(id); add the insert after that.
+    // Record the manual valuation against the unified assets table.
+    await client.query(
+      `INSERT INTO valuations
+         (asset_type, asset_id, value, source, valued_at)
+       VALUES ($1, $2, $3, 'MANUAL', NOW())`,
+      [current.rows[0].asset_type, id, text.trim()]
+    );
 
     await client.query("COMMIT");
+
     res.status(200).json(updated.rows[0]);
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});

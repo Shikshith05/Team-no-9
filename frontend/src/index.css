@@ -708,6 +708,75 @@ a {
   color: var(--accent);
 }
 
+/* ---------- Add / edit / delete assets (B23) ---------- */
+
+/* Title on the left, "Add asset" on the right; stacks on narrow screens. */
+.page-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.page-header-row > div {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.status-message {
+  margin-bottom: var(--gutter);
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.editor-card {
+  max-width: 720px;
+  margin-bottom: var(--gutter);
+}
+
+.asset-section + .asset-section {
+  margin-top: calc(var(--gutter) * 1.5);
+}
+
+.section-count {
+  font-weight: 400;
+}
+
+.button-danger {
+  background: var(--danger);
+  color: var(--surface);
+}
+
+.button-danger-text {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--gutter);
+  background: rgba(15, 18, 24, 0.55);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100vh - 2 * var(--gutter));
+  overflow-y: auto;
+}
+
 /* ---------- Forms (single column at every width, SAD 3.10) ---------- */
 
 .form {
@@ -960,5 +1029,33 @@ a {
 
   .property-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Price alerts on the dashboard (B12). */
+.alerts-panel {
+  margin-top: var(--gutter);
+}
+
+.alerts-form {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.alerts-subheading {
+  margin: 16px 0 8px;
+  font-size: 1rem;
+}
+
+.alerts-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+@media (min-width: 768px) {
+  .alerts-form {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
   }
 }

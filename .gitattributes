@@ -1,0 +1,5 @@
+# These files run inside Linux containers or in bash, so they must keep LF line
+# endings when checked out on Windows.
+*.sh text eol=lf
+Dockerfile text eol=lf
+nginx.conf text eol=lf

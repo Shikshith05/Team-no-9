@@ -5,7 +5,11 @@ import { app, pool, request, resetDatabase, createLoggedInUser, createAsset } fr
 
 beforeEach(resetDatabase);
 
-const ASSET_KEYS = ["assetType", "currentValue", "id", "location", "name", "purchaseDate", "purchaseValue", "valuedAt"];
+// B22 added the per-type fields (SAD 4.3.3); the B5 fields are unchanged.
+const ASSET_KEYS = [
+  "accountLabel", "assetType", "averageBuyPrice", "currentValue", "exchange", "form", "id", "location", "name",
+  "purchaseDate", "purchasePrice", "purchaseValue", "purityKarat", "quantity", "ticker", "valuedAt", "weightGrams"
+];
 
 describe("authentication", () => {
   it("all three endpoints require a token", async () => {
@@ -35,8 +39,10 @@ describe("GET /api/assets", () => {
       name: "Flat, Adyar",
       purchaseDate: "2021-03-15",
       currentValue: "8200000.00",
-      location: null,
-      purchaseValue: null
+      location: "Chennai",
+      purchaseValue: "4000000.00",
+      ticker: null,
+      purityKarat: null
     });
     expect(item.valuedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
   });
@@ -133,13 +139,37 @@ describe("PUT /api/assets/:id/valuation", () => {
     expect(summary.body.totalNetWorth).toBe(250.5);
   });
 
-  it("does not write to valuations yet (blocked on B7, #63)", async () => {
-    const { auth } = await createLoggedInUser();
-    const asset = await createAsset(auth, { assetType: "REAL_ESTATE" });
-    await request(app).put(`/api/assets/${asset.id}/valuation`).set("Authorization", auth).send({ value: "1.00" });
-    const { rows } = await pool.query("SELECT COUNT(*)::int AS n FROM valuations");
-    expect(rows[0].n).toBe(0);
+  it("writes a MANUAL valuation record for the updated asset", async () => {
+  const { auth } = await createLoggedInUser();
+
+  const asset = await createAsset(auth, {
+    assetType: "REAL_ESTATE",
+    value: 100
   });
+
+  const res = await request(app)
+    .put(`/api/assets/${asset.id}/valuation`)
+    .set("Authorization", auth)
+    .send({ value: "250.50" });
+
+  expect(res.status).toBe(200);
+  expect(res.body.currentValue).toBe("250.50");
+
+  const { rows } = await pool.query(
+    `SELECT asset_id, asset_type, value, source
+     FROM valuations
+     WHERE asset_id = $1`,
+    [asset.id]
+  );
+
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({
+    asset_id: String(asset.id),
+    asset_type: "REAL_ESTATE",
+    value: "250.50",
+    source: "MANUAL"
+  });
+});
 
   it.each([
     ["negative", "-1"],

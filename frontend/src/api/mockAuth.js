@@ -1,4 +1,5 @@
-// Mock password-reset endpoints, used until the auth API exists (contract in auth.js).
+// Mock password-reset endpoints for VITE_USE_MOCK_API=true (contract in auth.js;
+// the real endpoints are B24, backend/src/controllers/authController.js).
 //
 // The server keeps only each token's SHA-256 hash, with expires_at and used_at
 // (password_reset_tokens). The mock keeps the same state per token:
@@ -63,7 +64,7 @@ export async function mockResetPassword(token, newPassword) {
     throw new ApiError(400, {
       code: 'VALIDATION_ERROR',
       message: 'Check the highlighted field.',
-      fields: [{ field: 'newPassword', message: problem }],
+      fields: [{ field: 'password', message: problem }],
     });
   }
 
