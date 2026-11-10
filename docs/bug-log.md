@@ -311,3 +311,12 @@ The smoke database was dropped afterwards.
 
 `.github/workflows/main.yml` now runs the backend tests (with a `postgres:16` service) and the frontend unit tests on pushes and pull requests to `main` and `fix/bug-bash`. CI results for this branch are visible once it is pushed.
 | SAD 3.9 | Rate limiting on /api/auth/* | Sateesh | Closed | Added express-rate-limit on auth endpoints with 429 status and env config |
+
+## B25 – Auth rate limiter shared one bucket behind nginx
+- **Found by:** Shikshith05 review of #86
+- **Symptom:** All users shared nginx IP behind proxy causing premature 429 errors and ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+- **Root cause:** Missing \	rust proxy\; global rate limiter mounted on \/api/auth/*\; non-conforming error response format.
+- **Fix:** Added \pp.set('trust proxy', 1)\; applied limiters strictly to POST \/login\, \/register\, \/forgot-password\, \/reset-password\ (\skipSuccessfulRequests: true\ on login); added SAD error format handler.
+- **Tests:** \ackend/tests/auth.ratelimit.test.js\
+- **PR:** #86 (Refs #58)
+
