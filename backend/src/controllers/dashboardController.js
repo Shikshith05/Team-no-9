@@ -23,11 +23,21 @@ exports.getDashboard = async (req, res) => {
     [userId]
   );
 
-  // PWM-F-024. market_price_cache is keyed by the per-type tables, which have no
-  // owner, so a stale price can only be matched by class: the flag is set when the
-  // user holds a class that has a stale price.
+  // PWM-F-024 (SAD 4.5): true when the latest refresh of a price the user's own
+  // holdings use has failed. B26: the refresh writes price_cache, one row per
+  // instrument (services/marketRefresh.js). The old market_price_cache (keyed by
+  // the per-type tables, which have no owner, so only matchable by class) is no
+  // longer written but is still honoured for rows left from before.
   const stale = await pool.query(
     `SELECT EXISTS (
+       SELECT 1
+       FROM assets a
+       JOIN price_cache p ON p.instrument_key = CASE UPPER(a.asset_type)
+         WHEN 'STOCK' THEN 'STOCK:' || COALESCE(a.exchange, 'NSE') || ':' || a.ticker
+         WHEN 'GOLD' THEN 'GOLD:' || a.purity_karat || 'K'
+       END
+       WHERE a.user_id = $1 AND a.deleted_at IS NULL AND p.last_status = 'FAILED'
+     ) OR EXISTS (
        SELECT 1
        FROM assets a
        JOIN market_price_cache c ON c.asset_type = LOWER(a.asset_type)
