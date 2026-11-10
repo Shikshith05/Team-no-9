@@ -5,43 +5,43 @@ Integration branch: `fix/bug-bash`. Each bug has its own issue, owner and fix br
 
 Owners: Shikshith: B1, B2, B3, B4, B5, B6, B11, B14, B15, B16–B21, bug log; Greeshma: B7, B7b, B13; Rushikesh: B8, B9, B10, B12. B1, B2, B11 and B15 were first assigned to Sateesh in #52.
 
-Status as of 2026-11-07.
+Status as of 2026-11-10 (last updated 2026-11-10).
 
 ## Summary
 
 | Bug | Issue | Title | Assignee | Status |
 |---|---|---|---|---|
-| B1 | [#59](https://github.com/Shikshith05/Team-no-9/issues/59) | Connect login page to /api/auth/login | Shikshith05 | Fixed in PR #79 – pending merge |
-| B2 | [#60](https://github.com/Shikshith05/Team-no-9/issues/60) | Resolve frontend and backend authentication mismatch | Shikshith05 | Fixed in PR #79 – pending merge |
-| B3 | [#56](https://github.com/Shikshith05/Team-no-9/issues/56) | Normalize email addresses to prevent case-sensitive duplicate accounts | Shikshith05 | Fixed |
-| B4 | [#57](https://github.com/Shikshith05/Team-no-9/issues/57) | Add email format and password strength validation during registration | Shikshith05 | Fixed |
-| B5 | [#54](https://github.com/Shikshith05/Team-no-9/issues/54) | Implement missing asset APIs | Shikshith05 | Fixed; manual valuation-history write implemented by B7 PR #73 |
-| B6 | [#55](https://github.com/Shikshith05/Team-no-9/issues/55) | Standardize API error responses and prevent database error leakage | Shikshith05 | Fixed |
-| B7 | [#63](https://github.com/Shikshith05/Team-no-9/issues/63) | Fix valuation asset relationship and implement valuation history API | GREESHMA-K77 | Fixed – merged via PR #73 |
-| B7b | [#64](https://github.com/Shikshith05/Team-no-9/issues/64) | Restore secure valuation history in CSV and PDF exports | GREESHMA-K77 | Fixed – merged via PR #77 |
-| B8 | [#66](https://github.com/Shikshith05/Team-no-9/issues/66) | Prevent one failed ticker from stopping the entire stock refresh | Rushikesh9742 | Fixed – merged via PR #72 |
-| B9 | [#67](https://github.com/Shikshith05/Team-no-9/issues/67) | Correct market-price cache semantics and persist valuation history during refresh | Rushikesh9742 | Open – PR #76 |
-| B10 | [#68](https://github.com/Shikshith05/Team-no-9/issues/68) | Remove obsolete frontend valuation worker and duplicate root-level services | Rushikesh9742 | Fixed – merged via PR #71 |
-| B11 | [#61](https://github.com/Shikshith05/Team-no-9/issues/61) | Fix dashboard endpoint mismatch between frontend and backend | Shikshith05 | Fixed in PR #80 – pending merge |
-| B12 | [#69](https://github.com/Shikshith05/Team-no-9/issues/69) | Persist dashboard alerts per user using backend storage | Rushikesh9742 | Fixed – merged via PR #74 |
-| B13 | [#65](https://github.com/Shikshith05/Team-no-9/issues/65) | Standardize date formatting in CSV and PDF exports | GREESHMA-K77 | Open – PR #78 |
-| B14 | [#51](https://github.com/Shikshith05/Team-no-9/issues/51) (duplicate: [#53](https://github.com/Shikshith05/Team-no-9/issues/53)) | Backend has no tests and CI only runs a syntax check | Shikshith05 | Fixed |
-| B15 | [#62](https://github.com/Shikshith05/Team-no-9/issues/62) | Fix missing Dockerfiles, Nginx configuration and certificate references | Shikshith05 | Fixed in PR #82 – pending merge |
-| B16 | none (audit) | Lockout re-locks after it expires | Shikshith05 | Fixed in PR #81 – pending merge |
-| B17 | none (audit) | JWT lifetime hard-coded to 1h | Shikshith05 | Fixed in PR #81 – pending merge |
-| B18 | none (audit) | No security headers, X-Powered-By exposed | Shikshith05 | Fixed in PR #81 – pending merge |
-| B19 | none (audit) | `.env.example` missing JWT and CORS settings | Shikshith05 | Fixed in PR #81 – pending merge |
-| B20 | none (audit) | README has no run instructions | Shikshith05 | Fixed in PR #81 – pending merge |
-| B21 | none (audit) | Logging in right after logout gives a revoked token | Shikshith05 | Fixed in PR #81 – pending merge |
-| B24 | none (audit) | Forgot / reset password endpoints don't exist | Shikshith05 | Fixed in branch `fix/B24-password-reset` – PR pending review |
-| B22 | none (audit) | Asset types lack their required fields; any asset type accepted | Shikshith05 | Fixed in branch `fix/B22-asset-type-fields` – PR pending review |
-| B23 | none (audit) | No way to add, edit or delete assets in the UI | Shikshith05 | Fixed in branch `fix/B23-asset-forms` (on top of B22) – PR pending review |
+| B1 | [#59](https://github.com/Shikshith05/Team-no-9/issues/59) | Connect login page to /api/auth/login | Shikshith05 | Fixed – merged into `fix/bug-bash` via PRs #74, #79 |
+| B2 | [#60](https://github.com/Shikshith05/Team-no-9/issues/60) | Resolve frontend and backend authentication mismatch | Shikshith05 | Fixed – merged into `fix/bug-bash` via PRs #74, #79 |
+| B3 | [#56](https://github.com/Shikshith05/Team-no-9/issues/56) | Normalize email addresses to prevent case-sensitive duplicate accounts | Shikshith05 | Fixed – PR #70 (on `main`) |
+| B4 | [#57](https://github.com/Shikshith05/Team-no-9/issues/57) | Add email format and password strength validation during registration | Shikshith05 | Fixed – PR #70 (on `main`) |
+| B5 | [#54](https://github.com/Shikshith05/Team-no-9/issues/54) | Implement missing asset APIs | Shikshith05 | Fixed – PR #70 (on `main`); manual valuation-history write implemented by B7 PR #73 |
+| B6 | [#55](https://github.com/Shikshith05/Team-no-9/issues/55) | Standardize API error responses and prevent database error leakage | Shikshith05 | Fixed – PR #70 (on `main`) |
+| B7 | [#63](https://github.com/Shikshith05/Team-no-9/issues/63) | Fix valuation asset relationship and implement valuation history API | GREESHMA-K77 | Fixed – merged into `fix/bug-bash` via PR #73 |
+| B7b | [#64](https://github.com/Shikshith05/Team-no-9/issues/64) | Restore secure valuation history in CSV and PDF exports | GREESHMA-K77 | Fixed – merged into `fix/bug-bash` via PR #77 |
+| B8 | [#66](https://github.com/Shikshith05/Team-no-9/issues/66) | Prevent one failed ticker from stopping the entire stock refresh | Rushikesh9742 | Fixed – merged into `fix/bug-bash` via PR #72 |
+| B9 | [#67](https://github.com/Shikshith05/Team-no-9/issues/67) | Correct market-price cache semantics and persist valuation history during refresh | Rushikesh9742 | Open – not in this release; known limitation (stock/gold not auto-revalued in `assets`). PR #76 |
+| B10 | [#68](https://github.com/Shikshith05/Team-no-9/issues/68) | Remove obsolete frontend valuation worker and duplicate root-level services | Rushikesh9742 | Fixed – merged into `fix/bug-bash` via PR #71 |
+| B11 | [#61](https://github.com/Shikshith05/Team-no-9/issues/61) | Fix dashboard endpoint mismatch between frontend and backend | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #80 |
+| B12 | [#69](https://github.com/Shikshith05/Team-no-9/issues/69) | Persist dashboard alerts per user using backend storage | Rushikesh9742 | Fixed – merged into `fix/bug-bash` via PR #74 |
+| B13 | [#65](https://github.com/Shikshith05/Team-no-9/issues/65) | Standardize date formatting in CSV and PDF exports | GREESHMA-K77 | Fixed – merged into `fix/bug-bash` via PR #78 |
+| B14 | [#51](https://github.com/Shikshith05/Team-no-9/issues/51) (duplicate: [#53](https://github.com/Shikshith05/Team-no-9/issues/53)) | Backend has no tests and CI only runs a syntax check | Shikshith05 | Fixed – PR #70 (on `main`) |
+| B15 | [#62](https://github.com/Shikshith05/Team-no-9/issues/62) | Fix missing Dockerfiles, Nginx configuration and certificate references | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #82 |
+| B16 | none (audit) | Lockout re-locks after it expires | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #81 |
+| B17 | none (audit) | JWT lifetime hard-coded to 1h | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #81 |
+| B18 | none (audit) | No security headers, X-Powered-By exposed | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #81 |
+| B19 | none (audit) | `.env.example` missing JWT and CORS settings | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #81 |
+| B20 | none (audit) | README has no run instructions | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #81 |
+| B21 | none (audit) | Logging in right after logout gives a revoked token | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #81 |
+| B22 | none (audit) | Asset types lack their required fields; any asset type accepted | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #83 |
+| B23 | none (audit) | No way to add, edit or delete assets in the UI | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #84 |
+| B24 | none (audit) | Forgot / reset password endpoints don't exist | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #85 |
+| B25 | none | No rate limiting on `/api/auth/*` (SAD 3.9) | Sateesh5298 | Open – changes requested, not in this release. PR #86 |
 
-Open items that block closing #58 (its acceptance criteria say no critical bug may remain open, and the final regression must be repeated):
-- B9 (#67) and B13 (#65) are still open, in PRs #76 and #78.
-- PRs #79, #80, #81 and #82 are waiting for review and merge.
-- B16–B21 came from the audit and have no GitHub issues. They are tracked here and in PR #81. Issues can be created if #58 requires one for each bug.
-- The final regression in #58 must be repeated on `fix/bug-bash` once all of these are merged.
+Release status (`fix/bug-bash` → `main`):
+- Everything above marked "Fixed" is in `fix/bug-bash` and was checked by the final regression on 2026-11-10 (below).
+- B9 (#67, PR #76) and B25 (PR #86) are **not** in this release. They are listed under "Known limitations in this release".
+- B16–B25 came from the audit and have no GitHub issues. They are tracked here and in their PRs.
 
 ## Details
 
@@ -97,10 +97,10 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
 - **Root cause:** the refresh handled a failure for the whole run, not for each ticker.
 - **Fix / tests:** Merged via PR #72. Each ticker is handled separately and only the failing one is marked stale; covered in `backend/tests/marketRefresh.test.js`.
 
-### B9 – Market-price cache semantics and valuation history during refresh (#67) – Open, PR #76
+### B9 – Market-price cache semantics and valuation history during refresh (#67) – Open, PR #76, not in this release
 - **Steps to reproduce:** compare `market_price_cache.price` for a stock and a gold holding: one is a per-share price, the other a total holding value. After a successful refresh, `valuations` has no new rows.
 - **Root cause:** the two asset classes use one column with different meanings, and the refresh job never writes valuation history.
-- **Fix / tests:** in PR #76 (Rushikesh).
+- **Fix / tests:** in PR #76 (Rushikesh), which is not part of the Sprint 3 release. Until it lands, the `value` of stock and gold assets is what the user entered and is not revalued automatically from the price feeds.
 
 ### B10 – Obsolete frontend valuation worker and duplicate services (#68) – Fixed
 - **Steps to reproduce (before):** `frontend/src/valuationWorker.js` calls `example.com`, and `alertService.js` and `valuationWorker.js` are duplicated at the repository root.
@@ -119,10 +119,10 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
 - **Root cause:** alerts lived in browser memory only.
 - **Fix / tests:** Merged via PR #74. Alerts are stored in `user_alerts` per authenticated user (migration 009); covered in `backend/tests/alerts.test.js`.
 
-### B13 – Export date formats (#65)
+### B13 – Export date formats (#65) – Fixed in PR #78
 - **Steps to reproduce:** risk of JavaScript default date strings (`Fri Oct 30 2026 ...`) in CSV/PDF.
 - **Root cause / current state:** `reportController.js` on `main` already formats `purchase_date` as `YYYY-MM-DD` and `created_at` as ISO 8601 UTC in SQL, as the issue's own note says. What remains is verifying it and adding the timezone tests the issue asks for.
-- - **Fix / tests:** Existing SQL date formatting retained. Added CSV and PDF timezone regression tests in `backend/tests/reports.test.js`, verifying date-only purchase dates and ISO 8601 UTC timestamps at a timezone boundary. Full backend suite: 95 tests passed.
+- **Fix / tests:** Existing SQL date formatting retained. Added CSV and PDF timezone regression tests in `backend/tests/reports.test.js`, verifying date-only purchase dates and ISO 8601 UTC timestamps at a timezone boundary. Full backend suite on `fix/bug-bash` at the final regression (2026-11-10): 206 tests passed.
 
 ### B14 – No backend tests, CI only checks syntax (#51, duplicate #53) – Fixed
 - **Steps to reproduce (before):** `cd backend && npm test` exits 1 ("no test specified"); `.github/workflows/main.yml` only runs `node --check` for the backend and never runs the frontend's Vitest suite.
@@ -180,7 +180,7 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
 - **Fix:** each token gets a random `jti`.
 - **Tests:** `backend/tests/authHardening.test.js`.
 
-### B24 – Forgot / reset password endpoints don't exist – Fixed in `fix/B24-password-reset`
+### B24 – Forgot / reset password endpoints don't exist – Fixed in PR #85
 - **Requirement:** PWM-F-003 (AC-PWM-F-003: the link expires after 30 minutes and works once; TC-Auth-03); PRJ-SR-003 (TC-Sec-03); PRJ-SR-005; SAD 3.9, 4.2.3, 4.3.4, 4.4.
 - **Steps to reproduce (before):** open `#/forgot-password`, enter an email and press "Send reset link". `POST /api/auth/forgot-password` answers 404 and the page shows "We couldn't send the request". `POST /api/auth/reset-password` also answers 404.
 - **Expected:** the same reply for any email; a single-use link valid for 30 minutes; after a reset, the new password works, old sessions end and any lockout is cleared.
@@ -204,7 +204,8 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
   - `backend/tests/passwordReset.test.js`: identical reply for an unknown email; only the hash is stored, with a 30-minute expiry; link logged outside production and not in production; a new request invalidates the old link; new password works and the old one doesn't; single use; expired link; unknown, missing or malformed token; weak passwords leave the link usable; old JWTs rejected; lockout cleared; other users unaffected; migration 011 re-run on existing data.
   - `frontend/src/pages/passwordResetPages.test.jsx`: request body, the three link-problem screens, server password error, client policy, local session cleared.
   - `frontend/e2e-real/passwordReset.spec.js`: the full journey against the real backend, reading the link from the backend log (`E2E_BACKEND_LOG`).
-### B22 – Asset types lack their required fields – Fixed in `fix/B22-asset-type-fields`
+
+### B22 – Asset types lack their required fields – Fixed in PR #83
 - **Requirement:** PWM-F-010, PWM-F-011, PWM-F-012, PWM-F-013, PWM-F-015; SAD 4.3.3, 4.4; TC-RE-01, TC-Gold-01, TC-Stock-01, TC-Cash-01, TC-Asset-02.
 - **Steps to reproduce (before):** `POST /api/assets` with `{"assetName":"x","assetType":"banana","value":1}` returns 201. A gold asset cannot carry its form, purity or weight, a stock its ticker or quantity, a property its location or purchase value, or a cash entry its account label: `assets` only has name, type, value and purchase date, and `GET /api/assets` always answers `location: null` and `purchaseValue: null`.
 - **Expected:** each asset class stores the fields its SRS requirement lists, invalid input is rejected with field-level messages (400), and only the four SRS classes exist.
@@ -224,7 +225,7 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
   - Another user's asset is 404, not the 403 of PRJ-SR-004 (unchanged from B5).
 - **Tests:** `backend/tests/assetTypes.test.js` (valid create per type, missing and invalid fields per type including purity 0/25, negative weight and bad tickers, unknown types rejected, database CHECKs when the API is bypassed, partial update, type change, cross-user read and update, soft-deleted asset, legacy row completion, dashboard and CSV) and `backend/tests/assetTypesMigration.test.js` (010 applied by the runner to a database with free-text assets and a valuation row, then re-run twice). `tests/helpers.js` fills valid per-type details, so suites that only set name, type and value (including `reports.test.js`) are unchanged. Real-backend Playwright specs updated to send the new fields.
 
-### B23 – No way to add, edit or delete assets in the UI – Fixed in `fix/B23-asset-forms`
+### B23 – No way to add, edit or delete assets in the UI – Fixed in PR #84
 - **Requirement:** PWM-F-014 (TC-Asset-01), PWM-F-010 to PWM-F-013, PWM-F-015; SRS 3.1 (inline validation); SAD 4.8; PWM-NF-004 (TC-UX-01).
 - **Steps to reproduce (before):** log in and open Assets. Only real estate is listed. There is no button to add an asset, and no way to edit or delete one. Gold, stocks and cash can only be created with a direct API call.
 - **Expected:** an "Add asset" form for each of the four classes, plus edit and delete for every asset; the dashboard totals follow (AC-PWM-F-014).
@@ -244,7 +245,52 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
   - `frontend/e2e-real/assets.spec.js` (real backend): log in, add each type through the form, edit, delete; the dashboard total changes each time.
   - `docs/responsive-test-log.md` updated.
 
+### B25 – No rate limiting on `/api/auth/*` – Open, PR #86, not in this release
+- **Requirement:** SAD 3.9 (rate limiting on the authentication endpoints).
+- **Steps to reproduce:** send many `POST /api/auth/login` (or `forgot-password`) requests in a row. None is throttled; only the per-account lockout (PRJ-SR-005) applies.
+- **Owner / fix:** Sateesh5298, PR #86. Changes were requested in review, so it is not part of the Sprint 3 release.
+
 ## Regression testing
+
+### Final regression – 2026-11-10
+
+Run on `fix/bug-bash` at `f6cffbba8f81f57e0a03d2ff2a4d080400f0a939` ("Merge pull request #78"), which contains every fix listed as merged into `fix/bug-bash` above. Windows 11, Node 22.19.0, PostgreSQL 16 (Docker), Docker 29.9.2.
+
+| Suite | Result |
+|---|---|
+| Backend API (`npm test`, throwaway `postgres:16`, database `*_test`) | **206 of 206 passed** in 17 files, 12 migrations applied |
+| Frontend unit (`npm test`) | **110 of 110 passed** in 11 files |
+| Frontend lint (`npm run lint`) and build (`npm run build`) | pass |
+| Playwright suites (`test:e2e`, `test:e2e:real`) | not re-run in this regression; the Playwright browser was only used for the screenshots below |
+
+**Docker / HTTPS gateway check** (README "Run with Docker": `.env` from `.env.example` with a random `JWT_SECRET`, `FRONTEND_ORIGIN=https://localhost`, self-signed certificate in `./certs`, `docker compose up -d --build`). All requests went through `https://localhost/api`.
+
+| Step | Result |
+|---|---|
+| postgres, backend and gateway healthy | ✅ |
+| `GET /api/health` | ✅ `{"status":"ok"}` |
+| `http://localhost` redirects to https | ✅ 301 → `https://localhost/` |
+| Register, then login | ✅ 201, 200 with JWT |
+| Create one asset of each type (REAL_ESTATE, GOLD, STOCK, CASH) | ✅ 201 × 4 |
+| `GET /api/dashboard`: totals and allocation | ✅ net worth 5,100,000.00; allocation 98.05 + 1.37 + 0.31 + 0.27 = 100.00 |
+| Manual valuation, then `GET /api/valuations/history` | ✅ 200, new value in the history |
+| CSV export / PDF export | ✅ `text/csv` with the assets / valid `application/pdf` |
+| Forgot password | ✅ 202 |
+| Reset link in `docker compose logs backend` (production config, `NODE_ENV=production`) | ❌ by design: in production only `PASSWORD_RESET_REQUESTED` with the user id is logged, and there is no email service, so **reset links cannot be delivered in the Docker deployment**. See "Known limitations". |
+| Reset flow, re-run with a temporary, uncommitted compose override `NODE_ENV=development` for the backend (no app code changed; override removed afterwards and the backend restarted with `NODE_ENV=production`) | ✅ reset link in the backend log → reset 200 → old JWT rejected (401) → link cannot be reused (400) → old password rejected (401) → login with the new password 200 → logout 200 → token rejected after logout (401) |
+| UI through the gateway (Playwright, certificate errors ignored): login, dashboard, assets and reports pages render | ✅ |
+| `docker compose down` (without `-v`); database volume kept | ✅ |
+
+### Known limitations in this release
+- **B9 (#67, PR #76):** stock and gold assets are not revalued automatically in `assets`; their value is what the user entered.
+- **B25 (PR #86):** no rate limiting on `/api/auth/*` (SAD 3.9).
+- **No email service** for password-reset links. Outside production the link is printed to the backend console; in production (including the Docker setup) nothing is sent or logged, so users cannot reset their password until an email provider is added.
+- No admin module.
+- No percentage-threshold alerts (only price alerts).
+- No performance tests.
+- Another user's asset returns 404, not the 403 of PRJ-SR-004.
+- Authentication uses a Bearer token in `localStorage`, not an httpOnly cookie (deviation from SAD 4.3.1, see `docs/auth-decision.md`).
+- Stock tickers are checked by format only; there is no symbol master.
 
 ### 2026-11-07: PRs #79, #80, #81 and #82 merged locally
 
