@@ -1,6 +1,5 @@
-﻿const request = require("supertest");
-const app = require("../src/app");
-const { describe, it, expect, beforeAll, afterAll } = require("vitest");
+﻿import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { app, request } from "./helpers";
 
 describe("SAD 3.9: Auth Rate Limiting", () => {
   const OLD_LIMIT = process.env.AUTH_RATE_LIMIT;
@@ -10,7 +9,11 @@ describe("SAD 3.9: Auth Rate Limiting", () => {
   });
 
   afterAll(() => {
-    process.env.AUTH_RATE_LIMIT = OLD_LIMIT;
+    if (OLD_LIMIT === undefined) {
+      delete process.env.AUTH_RATE_LIMIT;
+    } else {
+      process.env.AUTH_RATE_LIMIT = OLD_LIMIT;
+    }
   });
 
   const TEST_IP = "203.0.113.77";
@@ -58,4 +61,3 @@ describe("SAD 3.9: Auth Rate Limiting", () => {
     }
   });
 });
-
