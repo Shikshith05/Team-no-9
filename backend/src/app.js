@@ -1,4 +1,4 @@
-const express = require("express");
+﻿const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const path = require("path");
@@ -8,6 +8,7 @@ require("dotenv").config({
 });
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 5000);
 
 const authRoutes = require("./routes/authRoutes");
