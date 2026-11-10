@@ -33,9 +33,10 @@ Status as of 2026-11-07.
 | B19 | none (audit) | `.env.example` missing JWT and CORS settings | Shikshith05 | Fixed in PR #81 – pending merge |
 | B20 | none (audit) | README has no run instructions | Shikshith05 | Fixed in PR #81 – pending merge |
 | B21 | none (audit) | Logging in right after logout gives a revoked token | Shikshith05 | Fixed in PR #81 – pending merge |
-| B24 | none (audit) | Forgot / reset password endpoints don't exist | Shikshith05 | Fixed in branch `fix/B24-password-reset` – PR pending review |
 | B22 | none (audit) | Asset types lack their required fields; any asset type accepted | Shikshith05 | Fixed in branch `fix/B22-asset-type-fields` – PR pending review |
 | B23 | none (audit) | No way to add, edit or delete assets in the UI | Shikshith05 | Fixed in branch `fix/B23-asset-forms` (on top of B22) – PR pending review |
+| B24 | none (audit) | Forgot / reset password endpoints don't exist | Shikshith05 | Fixed in branch `fix/B24-password-reset` – PR pending review |
+| B25 | none (review of #86) | Auth rate limiter shared one bucket behind nginx | Sateesh | Fixed in PR #86 – pending review |
 
 Open items that block closing #58 (its acceptance criteria say no critical bug may remain open, and the final regression must be repeated):
 - B9 (#67) and B13 (#65) are still open, in PRs #76 and #78.
@@ -107,7 +108,6 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
 - **Root cause:** code left over from before the backend refresh service existed.
 - **Fix / tests:** Merged via PR #71. The unused worker and duplicates were removed; the frontend build and tests pass.
 
-
 ### B11 – Dashboard endpoint mismatch (#61) – Fixed in PR #80
 - **Steps to reproduce (before):** the frontend calls `GET /api/dashboard` and `GET /api/dashboard/trend`; the backend only has `GET /api/assets/dashboard-summary`, so both return 404. After PR #74 the page also shows only price alerts, with no totals or charts.
 - **Root cause:** frontend and backend were built against different contracts, and #74 replaced `Dashboard.jsx`.
@@ -122,7 +122,7 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
 ### B13 – Export date formats (#65)
 - **Steps to reproduce:** risk of JavaScript default date strings (`Fri Oct 30 2026 ...`) in CSV/PDF.
 - **Root cause / current state:** `reportController.js` on `main` already formats `purchase_date` as `YYYY-MM-DD` and `created_at` as ISO 8601 UTC in SQL, as the issue's own note says. What remains is verifying it and adding the timezone tests the issue asks for.
-- - **Fix / tests:** Existing SQL date formatting retained. Added CSV and PDF timezone regression tests in `backend/tests/reports.test.js`, verifying date-only purchase dates and ISO 8601 UTC timestamps at a timezone boundary. Full backend suite: 95 tests passed.
+- **Fix / tests:** Existing SQL date formatting retained. Added CSV and PDF timezone regression tests in `backend/tests/reports.test.js`, verifying date-only purchase dates and ISO 8601 UTC timestamps at a timezone boundary. Full backend suite: 95 tests passed.
 
 ### B14 – No backend tests, CI only checks syntax (#51, duplicate #53) – Fixed
 - **Steps to reproduce (before):** `cd backend && npm test` exits 1 ("no test specified"); `.github/workflows/main.yml` only runs `node --check` for the backend and never runs the frontend's Vitest suite.
@@ -180,30 +180,6 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
 - **Fix:** each token gets a random `jti`.
 - **Tests:** `backend/tests/authHardening.test.js`.
 
-### B24 – Forgot / reset password endpoints don't exist – Fixed in `fix/B24-password-reset`
-- **Requirement:** PWM-F-003 (AC-PWM-F-003: the link expires after 30 minutes and works once; TC-Auth-03); PRJ-SR-003 (TC-Sec-03); PRJ-SR-005; SAD 3.9, 4.2.3, 4.3.4, 4.4.
-- **Steps to reproduce (before):** open `#/forgot-password`, enter an email and press "Send reset link". `POST /api/auth/forgot-password` answers 404 and the page shows "We couldn't send the request". `POST /api/auth/reset-password` also answers 404.
-- **Expected:** the same reply for any email; a single-use link valid for 30 minutes; after a reset, the new password works, old sessions end and any lockout is cleared.
-- **Root cause:** only the frontend pages and a mock were built (Sprint 2). The endpoints, the token table and session invalidation were never implemented.
-- **Fix:**
-  - Migration `011_password_reset.sql` adds `password_reset_tokens` (SAD 4.4: `user_id`, SHA-256 `token_hash`, `expires_at`, `used_at`) and `users.token_valid_after` (SAD 3.9).
-  - `POST /api/auth/forgot-password {email}`: a bad email format is 400. Otherwise the reply is always 202 with the same body, whether or not the account exists (SAD 4.3.4). For an existing account it makes a random 32-byte token, stores only its hash with a 30-minute expiry, and removes the user's older unused tokens.
-  - `POST /api/auth/reset-password {token, password}`: an unknown, expired or used token is 400 `RESET_TOKEN_INVALID`, `RESET_TOKEN_EXPIRED` or `RESET_TOKEN_USED` in the SAD error format.
-  - The password must meet the registration policy (400 `VALIDATION_ERROR` on `password`). A weak password does not use up the link.
-  - On success the password is hashed with bcrypt, the token is marked used, `failed_login_attempts` and `lock_until` are cleared, and `token_valid_after` is set.
-  - `authMiddleware.js` rejects any JWT issued before `token_valid_after` with 401 "Your password was changed".
-  - The time is cut to whole seconds, because a JWT's `iat` is: a login in the same second as the reset must keep working (compare B21). The cost is that a token issued earlier in that same second is not rejected.
-  - Frontend: `api/auth.js` sends `{token, password}` (it sent `newPassword`) and clears this browser's session after a reset. `ResetPasswordPage.jsx` reads the `password` field error. Both pages already had their screens.
-- **Deviations:**
-  - **No email.** There is no email service or notification outbox (SAD 4.1, 4.6). Outside production the reset link is written to the backend console. That breaks SAD 3.9's "reset links are never logged", but it is the only way to use the feature locally. In production nothing secret is logged, so reset links cannot be delivered until an email provider is added. Documented in README.md.
-  - The reply is 202 (SAD 4.3.4), not 200.
-  - No rate limit on `/api/auth/*` yet (SAD 3.9 asks for one).
-  - No `audit_log` table: events go to the server log, with the user id only.
-  - An existing email does slightly more database work than an unknown one, so response timing is not perfectly uniform.
-- **Tests:**
-  - `backend/tests/passwordReset.test.js`: identical reply for an unknown email; only the hash is stored, with a 30-minute expiry; link logged outside production and not in production; a new request invalidates the old link; new password works and the old one doesn't; single use; expired link; unknown, missing or malformed token; weak passwords leave the link usable; old JWTs rejected; lockout cleared; other users unaffected; migration 011 re-run on existing data.
-  - `frontend/src/pages/passwordResetPages.test.jsx`: request body, the three link-problem screens, server password error, client policy, local session cleared.
-  - `frontend/e2e-real/passwordReset.spec.js`: the full journey against the real backend, reading the link from the backend log (`E2E_BACKEND_LOG`).
 ### B22 – Asset types lack their required fields – Fixed in `fix/B22-asset-type-fields`
 - **Requirement:** PWM-F-010, PWM-F-011, PWM-F-012, PWM-F-013, PWM-F-015; SAD 4.3.3, 4.4; TC-RE-01, TC-Gold-01, TC-Stock-01, TC-Cash-01, TC-Asset-02.
 - **Steps to reproduce (before):** `POST /api/assets` with `{"assetName":"x","assetType":"banana","value":1}` returns 201. A gold asset cannot carry its form, purity or weight, a stock its ticker or quantity, a property its location or purchase value, or a cash entry its account label: `assets` only has name, type, value and purchase date, and `GET /api/assets` always answers `location: null` and `purchaseValue: null`.
@@ -244,6 +220,39 @@ Open items that block closing #58 (its acceptance criteria say no critical bug m
   - `frontend/e2e-real/assets.spec.js` (real backend): log in, add each type through the form, edit, delete; the dashboard total changes each time.
   - `docs/responsive-test-log.md` updated.
 
+### B24 – Forgot / reset password endpoints don't exist – Fixed in `fix/B24-password-reset`
+- **Requirement:** PWM-F-003 (AC-PWM-F-003: the link expires after 30 minutes and works once; TC-Auth-03); PRJ-SR-003 (TC-Sec-03); PRJ-SR-005; SAD 3.9, 4.2.3, 4.3.4, 4.4.
+- **Steps to reproduce (before):** open `#/forgot-password`, enter an email and press "Send reset link". `POST /api/auth/forgot-password` answers 404 and the page shows "We couldn't send the request". `POST /api/auth/reset-password` also answers 404.
+- **Expected:** the same reply for any email; a single-use link valid for 30 minutes; after a reset, the new password works, old sessions end and any lockout is cleared.
+- **Root cause:** only the frontend pages and a mock were built (Sprint 2). The endpoints, the token table and session invalidation were never implemented.
+- **Fix:**
+  - Migration `011_password_reset.sql` adds `password_reset_tokens` (SAD 4.4: `user_id`, SHA-256 `token_hash`, `expires_at`, `used_at`) and `users.token_valid_after` (SAD 3.9).
+  - `POST /api/auth/forgot-password {email}`: a bad email format is 400. Otherwise the reply is always 202 with the same body, whether or not the account exists (SAD 4.3.4). For an existing account it makes a random 32-byte token, stores only its hash with a 30-minute expiry, and removes the user's older unused tokens.
+  - `POST /api/auth/reset-password {token, password}`: an unknown, expired or used token is 400 `RESET_TOKEN_INVALID`, `RESET_TOKEN_EXPIRED` or `RESET_TOKEN_USED` in the SAD error format.
+  - The password must meet the registration policy (400 `VALIDATION_ERROR` on `password`). A weak password does not use up the link.
+  - On success the password is hashed with bcrypt, the token is marked used, `failed_login_attempts` and `lock_until` are cleared, and `token_valid_after` is set.
+  - `authMiddleware.js` rejects any JWT issued before `token_valid_after` with 401 "Your password was changed".
+  - The time is cut to whole seconds, because a JWT's `iat` is: a login in the same second as the reset must keep working (compare B21). The cost is that a token issued earlier in that same second is not rejected.
+  - Frontend: `api/auth.js` sends `{token, password}` (it sent `newPassword`) and clears this browser's session after a reset. `ResetPasswordPage.jsx` reads the `password` field error. Both pages already had their screens.
+- **Deviations:**
+  - **No email.** There is no email service or notification outbox (SAD 4.1, 4.6). Outside production the reset link is written to the backend console. That breaks SAD 3.9's "reset links are never logged", but it is the only way to use the feature locally. In production nothing secret is logged, so reset links cannot be delivered until an email provider is added. Documented in README.md.
+  - The reply is 202 (SAD 4.3.4), not 200.
+  - No rate limit on `/api/auth/*` yet (SAD 3.9 asks for one).
+  - No `audit_log` table: events go to the server log, with the user id only.
+  - An existing email does slightly more database work than an unknown one, so response timing is not perfectly uniform.
+- **Tests:**
+  - `backend/tests/passwordReset.test.js`: identical reply for an unknown email; only the hash is stored, with a 30-minute expiry; link logged outside production and not in production; a new request invalidates the old link; new password works and the old one doesn't; single use; expired link; unknown, missing or malformed token; weak passwords leave the link usable; old JWTs rejected; lockout cleared; other users unaffected; migration 011 re-run on existing data.
+  - `frontend/src/pages/passwordResetPages.test.jsx`: request body, the three link-problem screens, server password error, client policy, local session cleared.
+  - `frontend/e2e-real/passwordReset.spec.js`: the full journey against the real backend, reading the link from the backend log (`E2E_BACKEND_LOG`).
+
+### B25 – Auth rate limiter shared one bucket behind nginx
+- **Found by:** Shikshith05 review of #86
+- **Symptom:** all users shared nginx's IP, so users 11–12 got 429; ERR_ERL_UNEXPECTED_X_FORWARDED_FOR was logged
+- **Root cause:** missing `trust proxy`; limiter mounted on all /api/auth/*; 429 not in SAD format
+- **Fix:** `app.set('trust proxy', 1)`; limiters only on POST /login, /register, /forgot-password, /reset-password (`skipSuccessfulRequests` on login); SAD-format handler
+- **Tests:** `backend/tests/auth.ratelimit.test.js`
+- **PR:** #86 (Refs #58)
+
 ## Regression testing
 
 ### 2026-11-07: PRs #79, #80, #81 and #82 merged locally
@@ -282,41 +291,4 @@ The teammates' fixes (B1, B2, B7, B7b, B11, B13, B15) and Rushikesh's untracked 
 
 Backend test files: `auth` (9), `assets` (7), `reports` (3), `emailNormalization` (8), `registrationValidation` (18), `errorFormat` (11), `assetEndpoints` (20).
 
-The backend tests need a PostgreSQL user that can create databases. Configuration comes only from the environment, for example:
-
-```
-DB_HOST=127.0.0.1 DB_PORT=5432 POSTGRES_USER=<user> POSTGRES_PASSWORD=<password> POSTGRES_DB=pwm_app_test npm test
-```
-
-`POSTGRES_DB` must end in `_test`: the suite drops and recreates it, applies `backend/database/migrations/*.sql` in order and drops it again at the end. In CI the same suite runs against a `postgres:16` service container.
-
-### Manual smoke test
-
-Real server (`node src/app.js`, port 5055) against a freshly migrated database (8 migrations), driven with curl:
-
-| Step | Request | Result |
-|---|---|---|
-| Health | `GET /health` | 200 |
-| Register | `POST /api/auth/register` with `" Smoke.Tester@Example.com "` | 201, stored as `smoke.tester@example.com` |
-| Login | `POST /api/auth/login` with `SMOKE.TESTER@example.com` | 200, JWT returned |
-| Create asset | `POST /api/assets` (REAL_ESTATE, 8200000) | 201 (purchase date shifted, see "New findings") |
-| List | `GET /api/assets?type=REAL_ESTATE` | 200, `{items:[...], page:1, limit:50, total:1}` |
-| Revalue | `PUT /api/assets/1/valuation` `{"value":"8500000.00"}` | 200, `currentValue` 8500000.00 |
-| Export CSV | `GET /api/reports/export/csv` | 200 `text/csv`, header + 1 asset row with the new value |
-| Export without token | `GET /api/reports/export/csv` | 401 `{"error":{"code":"UNAUTHORIZED",...}}` |
-
-The smoke database was dropped afterwards.
-
-### CI
-
-`.github/workflows/main.yml` now runs the backend tests (with a `postgres:16` service) and the frontend unit tests on pushes and pull requests to `main` and `fix/bug-bash`. CI results for this branch are visible once it is pushed.
-| SAD 3.9 | Rate limiting on /api/auth/* | Sateesh | Closed | Added express-rate-limit on auth endpoints with 429 status and env config |
-
-## B25 � Auth rate limiter shared one bucket behind nginx
-- **Found by:** Shikshith05 review of #86
-- **Symptom:** All users shared nginx IP behind proxy causing premature 429 errors and ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
-- **Root cause:** Missing \	rust proxy\; global rate limiter mounted on \/api/auth/*\; non-conforming error response format.
-- **Fix:** Added \pp.set('trust proxy', 1)\; applied limiters strictly to POST \/login\, \/register\, \/forgot-password\, \/reset-password\ (\skipSuccessfulRequests: true\ on login); added SAD error format handler.
-- **Tests:** \ackend/tests/auth.ratelimit.test.js\
-- **PR:** #86 (Refs #58)
-
+The backend tests need a PostgreSQL user that can create databases. Configuration comes only from the environment,
