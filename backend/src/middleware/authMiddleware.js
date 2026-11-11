@@ -1,4 +1,4 @@
-﻿const jwt = require("jsonwebtoken");
+const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const { unauthorized } = require("../utils/errors");
 

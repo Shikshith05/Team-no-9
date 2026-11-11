@@ -1,4 +1,4 @@
-﻿import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { app, request } from "./helpers";
 
 describe("SAD 3.9: Auth Rate Limiting", () => {

@@ -1,4 +1,4 @@
-﻿const pool = require("../config/db");
+const pool = require("../config/db");
 const { notFound, unprocessable, validationError } = require("../utils/errors");
 const { DETAIL_COLUMNS, FIELDS, validateAsset } = require("../utils/assetValidation");
 

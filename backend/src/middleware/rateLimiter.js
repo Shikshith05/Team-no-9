@@ -1,4 +1,4 @@
-﻿const rateLimit = require("express-rate-limit");
+const rateLimit = require("express-rate-limit");
 
 const tooMany = (req, res) => {
   return res.status(429).json({
