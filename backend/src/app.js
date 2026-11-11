@@ -8,7 +8,7 @@ require("dotenv").config({
 });
 
 const app = express();
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 const PORT = Number(process.env.PORT || 5000);
 
 const authRoutes = require("./routes/authRoutes");
@@ -41,6 +41,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/valuations", valuationRoutes);
 app.use("/api/alerts", alertRoutes);
 app.use("/api/health", healthRoutes);
+
 // Health endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
