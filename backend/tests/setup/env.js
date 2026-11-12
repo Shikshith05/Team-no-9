@@ -6,3 +6,6 @@ const crypto = require("crypto");
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = crypto.randomBytes(32).toString("hex");
 }
+
+process.env.NODE_ENV = "test";
+process.env.AUTH_RATE_LIMIT = process.env.AUTH_RATE_LIMIT || "1000";

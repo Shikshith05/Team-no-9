@@ -1,4 +1,4 @@
-﻿const pool = require("../config/db");
+const pool = require("../config/db");
 const { validationError } = require("../utils/errors");
 
 const MAX_VALUE = 9999999999999.99;

@@ -36,7 +36,7 @@ Status as of 2026-11-10 (last updated 2026-11-10).
 | B22 | none (audit) | Asset types lack their required fields; any asset type accepted | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #83 |
 | B23 | none (audit) | No way to add, edit or delete assets in the UI | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #84 |
 | B24 | none (audit) | Forgot / reset password endpoints don't exist | Shikshith05 | Fixed – merged into `fix/bug-bash` via PR #85 |
-| B25 | none | No rate limiting on `/api/auth/*` (SAD 3.9) | Sateesh5298 | Open – changes requested, not in this release. PR #86 |
+| B25 | none (audit) | No rate limiting on `/api/auth/*` (SAD 3.9) | Sateesh5298 | Fixed – PR #86 |
 | B26 | none (B9, #67) | Market refresh never revalues stock and gold in `assets` | Shikshith05 | Fixed – branch `fix/B26-market-revalue-assets`, PR into `fix/bug-bash` (supersedes PR #76) |
 | B27 | none (audit) | Settings menu showed an unbuilt placeholder page | Shikshith05 | Fixed – branch `fix/B27-remove-settings-placeholder`, PR into `main` |
 
@@ -247,11 +247,12 @@ Release status (`fix/bug-bash` → `main`):
   - `frontend/e2e-real/assets.spec.js` (real backend): log in, add each type through the form, edit, delete; the dashboard total changes each time.
   - `docs/responsive-test-log.md` updated.
 
-### B25 – No rate limiting on `/api/auth/*` – Open, PR #86, not in this release
+### B25 – No rate limiting on /api/auth/* – Fixed in PR #86
 - **Requirement:** SAD 3.9 (rate limiting on the authentication endpoints).
-- **Steps to reproduce:** send many `POST /api/auth/login` (or `forgot-password`) requests in a row. None is throttled; only the per-account lockout (PRJ-SR-005) applies.
-- **Owner / fix:** Sateesh5298, PR #86. Changes were requested in review, so it is not part of the Sprint 3 release.
-
+- **Steps to reproduce (before):** send many POST /api/auth/login (or orgot-password) requests in a row. None is throttled; only the per-account lockout (PRJ-SR-005) applies.
+- **Root cause:** express-rate-limit was not configured on the authentication routes, and Express 	rust proxy was unset behind the Nginx reverse proxy.
+- **Fix:** added express-rate-limit middleware scoped to POST /api/auth/login, /register, /forgot-password, and /reset-password (configurable via AUTH_RATE_LIMIT, default 10 requests per 15-minute window, with skipSuccessfulRequests: true on login), enabled pp.set('trust proxy', 1), and formatted 429 responses in the standard SAD error envelope (TOO_MANY_REQUESTS).
+- **Tests:** ackend/tests/rateLimit.test.js (throttling across all 4 auth POST routes, 429 SAD error shape, successful login skipped from counter, X-Forwarded-For proxy handling); all 227 backend tests pass.
 ### B26 – Market refresh never revalues stock and gold in `assets` (B9, #67) – Fixed, supersedes PR #76
 - **Requirement:** PWM-F-020 and PWM-F-021 (High; TC-Val-01, TC-Val-02), PWM-F-023 (High), PWM-F-024 (Medium, stale flag only); SAD 4.4 `price_cache`, 4.5, 4.6.
 - **Steps to reproduce (before):** add a stock (RELIANCE, 10 shares, value 28000) and 22K gold (20 g, value 120000). Start the backend with both price feed URLs set. The refresh logs success, but `GET /api/assets` still shows 28000 and 120000, `GET /api/valuations/history` has no MARKET rows, and the dashboard total does not change. `PUT /api/assets/:id/valuation` refuses stock and gold (422 MARKET_VALUED), so only editing the asset can change their value.
