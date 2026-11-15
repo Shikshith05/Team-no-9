@@ -11,7 +11,9 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT || 5432),
   user: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  database: process.env.DEV_POSTGRES_DB || process.env.POSTGRES_DB
+database: process.env.NODE_ENV === "test"
+  ? process.env.POSTGRES_DB
+  : (process.env.DEV_POSTGRES_DB || process.env.POSTGRES_DB)
 });
 
 // PWM-NF-003: PostgreSQL restarting or dropping an idle connection must not end the
