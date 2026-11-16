@@ -5,9 +5,37 @@ A web app for tracking a personal portfolio of real estate, gold, stocks and cas
 - **Backend:** Node.js 22, Express 5, PostgreSQL (`backend/`)
 - **Frontend:** React 19, Vite (`frontend/`)
 - **Specs:** `Team9_SRS_*.pdf`, `Team9_*_SAD.pdf`, `Team9_*_STP.pdf`
-- **More docs:** [bug log](docs/bug-log.md), [auth decision](docs/auth-decision.md), [responsive test log](docs/responsive-test-log.md)
+- **More docs:** [Bug log](docs/bug-log.md), [Auth decision](docs/auth-decision.md), [Responsive test log](docs/responsive-test-log.md), [Deviations](docs/deviations.md), [Test summary report](docs/test-summary-report.md)
 
 There are two ways to run it: [locally](#run-locally) for development, or [with Docker](#run-with-docker) for the full setup behind HTTPS.
+
+## Project structure
+
+The repository is organized into separate backend, frontend, database, documentation and infrastructure components.
+
+```text
+Team-no-9/
+├── backend/
+│   ├── database/
+│   │   └── migrations/       # PostgreSQL database migrations
+│   ├── src/                  # Express API and backend services
+│   └── tests/                # Backend automated tests
+├── frontend/
+│   └── src/                  # React application and components
+├── docs/
+│   ├── bug-log.md            # Defect tracking and QA evidence
+│   ├── auth-decision.md      # Authentication design decisions
+│   ├── deviations.md         # Documented requirements deviations
+│   ├── responsive-test-log.md
+│   └── test-summary-report.md
+├── scripts/                  # Development and certificate scripts
+├── certs/                    # Local development certificates (not committed)
+├── docker-compose.yml        # Docker services configuration
+├── .env.example              # Environment variable template
+└── README.md                 # Project setup and usage guide
+```
+
+**Note:** This shows the main project components. Some files and directories may vary as the project evolves. The `certs/` directory contains local development certificates and should not be committed.
 
 ## Run locally
 
@@ -37,7 +65,7 @@ Set `POSTGRES_PASSWORD` to the password you just chose. The rest of the file wor
 
 They must run in filename order.
 
-**bash**
+**Bash**
 
 ```bash
 export PGPASSWORD=choose_a_password
@@ -60,12 +88,27 @@ Run the same loop again after pulling new migrations. They are safe to re-run.
 
 ### 4. Start the backend and frontend
 
+Start the backend in one terminal:
+
 ```bash
-cd backend && npm ci && npm run dev      # http://localhost:5000
-cd frontend && npm ci && npm run dev     # http://localhost:5173, in a second terminal
+cd backend
+npm ci
+npm run dev
 ```
 
-Open <http://localhost:5173> and register an account. Vite forwards `/api` to the backend on port 5000.
+Backend: [http://localhost:5000](http://localhost:5000)
+
+Start the frontend in a second terminal:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Frontend: [http://localhost:5173](http://localhost:5173)
+
+Open [http://localhost:5173](http://localhost:5173) and register an account. Vite forwards `/api` to the backend on port 5000.
 
 ## Run the tests
 
@@ -75,7 +118,7 @@ The backend tests run against a real PostgreSQL database. `POSTGRES_DB` **must e
 
 The values below override `.env` for this one run.
 
-**bash**
+**Bash**
 
 ```bash
 cd backend
@@ -88,7 +131,9 @@ DB_HOST=localhost DB_PORT=5432 POSTGRES_USER=pwm POSTGRES_PASSWORD=choose_a_pass
 ```powershell
 cd backend
 npm ci
-$env:POSTGRES_USER = "pwm"; $env:POSTGRES_PASSWORD = "choose_a_password"; $env:POSTGRES_DB = "pwm_app_test"
+$env:POSTGRES_USER = "pwm"
+$env:POSTGRES_PASSWORD = "choose_a_password"
+$env:POSTGRES_DB = "pwm_app_test"
 npm test
 ```
 
@@ -97,12 +142,16 @@ npm test
 ```bash
 cd frontend
 npm ci
-npm test          # unit tests
+npm test
 npm run lint
 npm run build
 ```
 
-Browser tests need Chromium once: `npx playwright install chromium`.
+Browser tests need Chromium once:
+
+```bash
+npx playwright install chromium
+```
 
 ```bash
 npm run test:e2e        # screens at 360, 768 and 1280 px, with mock data
@@ -127,13 +176,13 @@ FRONTEND_ORIGIN=https://localhost
 
 The certificate goes in `./certs`, which is ignored by git. Never commit keys.
 
-**bash (including Git Bash on Windows)**
+**Bash (including Git Bash on Windows)**
 
 ```bash
 bash scripts/gen-dev-certs.sh
 ```
 
-**PowerShell, using Docker so openssl need not be installed**
+**PowerShell, using Docker so OpenSSL need not be installed**
 
 ```powershell
 New-Item -ItemType Directory -Force certs | Out-Null
@@ -156,12 +205,20 @@ For a real deployment, put your CA's `fullchain.pem` and `privkey.pem` in `./cer
 
 ```bash
 docker compose up -d --build
-docker compose ps                     # wait until every service is "healthy"
+docker compose ps
 ```
 
-Open <https://localhost> and accept the browser's warning about the self-signed certificate.
+Wait until every service is healthy.
 
-To stop it, run `docker compose down`. Adding `-v` also **deletes the database volume**.
+Open [https://localhost](https://localhost) and accept the browser's warning about the self-signed certificate.
+
+To stop it, run:
+
+```bash
+docker compose down
+```
+
+Adding `-v` also **deletes the database volume**.
 
 ## Configuration
 
@@ -174,8 +231,8 @@ All settings come from environment variables, and secrets never go in the reposi
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | The only browser origin CORS allows. |
 | `DB_HOST`, `DB_PORT` | `127.0.0.1`, `5432` | PostgreSQL address. |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | none (required) | PostgreSQL login and database. |
-| `DEV_POSTGRES_DB` | unset | If set, the backend uses this database instead of `POSTGRES_DB`. |
-| `STOCK_PRICE_API_URL`, `GOLD_PRICE_API_URL` | unset | Price feeds (https only). The refresh scheduler starts only when both are set. |
+| `DEV_POSTGRES_DB` | unset | If set, the backend uses this database instead of `POSTGRES_DB` outside automated tests. |
+| `STOCK_PRICE_API_URL`, `GOLD_PRICE_API_URL` | unset | Price feeds (HTTPS only). The refresh scheduler starts only when both are set. |
 | `VITE_USE_MOCK_API` | unset | Frontend build: `true` uses mock data instead of the API. |
 
 ## Password reset (no email yet)
@@ -184,11 +241,12 @@ All settings come from environment variables, and secrets never go in the reposi
 
 - **Outside production** (`NODE_ENV` is not `production`), the backend prints the reset link to its console instead of emailing it:
 
-  ```
+  ```text
   [password reset] Reset link for user 8 (valid 30 minutes): http://localhost:5173/#/reset-password?token=...
   ```
 
   The link starts with `FRONTEND_ORIGIN`. It works once and expires after 30 minutes. Asking again replaces the previous link.
+
 - **In production**, nothing secret is logged (only `PASSWORD_RESET_REQUESTED` with the user id). Users cannot reset their password until an email provider is added.
 - The reply is the same whether or not the email has an account. A reset clears any lockout and signs the account out everywhere.
 - To run the real-browser reset test, start the backend with its output in a file (`node src/app.js > backend.log 2>&1`), then run `E2E_BACKEND_LOG=../backend/backend.log npm run test:e2e:real`. Without that variable the test is skipped.
