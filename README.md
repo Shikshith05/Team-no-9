@@ -137,7 +137,17 @@ bash scripts/gen-dev-certs.sh
 
 ```powershell
 New-Item -ItemType Directory -Force certs | Out-Null
-docker run --rm -v "${PWD}/certs:/certs" alpine/openssl req -x509 -nodes -newkey rsa:2048 -days 365 -keyout /certs/privkey.pem -out /certs/fullchain.pem -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+docker run --rm -v "${PWD}/certs:/certs" alpine/openssl req -x509 -nodes -newkey rsa:2048 -sha256 -days 365 -keyout /certs/privkey.pem -out /certs/fullchain.pem -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+```
+
+**Windows CMD**
+
+If you are using Command Prompt and do not have Git Bash or OpenSSL installed:
+
+```cmd
+if not exist certs mkdir certs
+
+docker run --rm -v "%cd%\certs:/certs" -w /certs alpine/openssl req -x509 -nodes -newkey rsa:2048 -sha256 -days 365 -keyout privkey.pem -out fullchain.pem -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 ```
 
 For a real deployment, put your CA's `fullchain.pem` and `privkey.pem` in `./certs` instead.
@@ -147,7 +157,6 @@ For a real deployment, put your CA's `fullchain.pem` and `privkey.pem` in `./cer
 ```bash
 docker compose up -d --build
 docker compose ps                     # wait until every service is "healthy"
-curl -k https://localhost/api/health  # {"status":"ok"}
 ```
 
 Open <https://localhost> and accept the browser's warning about the self-signed certificate.
