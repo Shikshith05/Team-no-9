@@ -5,7 +5,7 @@ A web app for tracking a personal portfolio of real estate, gold, stocks and cas
 - **Backend:** Node.js 22, Express 5, PostgreSQL (`backend/`)
 - **Frontend:** React 19, Vite (`frontend/`)
 - **Specs:** `Team9_SRS_*.pdf`, `Team9_*_SAD.pdf`, `Team9_*_STP.pdf`
-- **More docs:** [Bug log](docs/bug-log.md), [Auth decision](docs/auth-decision.md), [Responsive test log](docs/responsive-test-log.md), [Deviations](docs/deviations.md), [Test summary report](docs/test-summary-report.md)
+- **More docs:** [Bug log](docs/bug-log.md), [Auth decision](docs/auth-decision.md), [Responsive test log](docs/responsive-test-log.md), [Deviations](docs/deviations.md), [Test summary report](docs/test-summary-report.md), [API documentation](docs/api-documentation.md)
 
 There are two ways to run it: [locally](#run-locally) for development, or [with Docker](#run-with-docker) for the full setup behind HTTPS.
 
@@ -27,7 +27,8 @@ Team-no-9/
 │   ├── auth-decision.md      # Authentication design decisions
 │   ├── deviations.md         # Documented requirements deviations
 │   ├── responsive-test-log.md
-│   └── test-summary-report.md
+│   ├── test-summary-report.md
+│   └── api-documentation.md  # Backend API documentation
 ├── scripts/                  # Development and certificate scripts
 ├── certs/                    # Local development certificates (not committed)
 ├── docker-compose.yml        # Docker services configuration
@@ -69,6 +70,7 @@ They must run in filename order.
 
 ```bash
 export PGPASSWORD=choose_a_password
+
 for f in backend/database/migrations/*.sql; do
   psql -h localhost -U pwm -d pwm_app -v ON_ERROR_STOP=1 -f "$f" || break
 done
@@ -78,6 +80,7 @@ done
 
 ```powershell
 $env:PGPASSWORD = "choose_a_password"
+
 Get-ChildItem backend\database\migrations\*.sql | Sort-Object Name | ForEach-Object {
   psql -h localhost -U pwm -d pwm_app -v ON_ERROR_STOP=1 -f $_.FullName
   if ($LASTEXITCODE -ne 0) { throw "Migration failed: $($_.Name)" }
@@ -137,6 +140,39 @@ $env:POSTGRES_DB = "pwm_app_test"
 npm test
 ```
 
+### Backend test coverage
+
+The backend supports coverage reporting using Vitest and the V8 coverage provider.
+
+Run the following command from the `backend/` directory after configuring the test database:
+
+```bash
+npm run test:coverage
+```
+
+This runs the complete backend test suite and displays:
+
+- Statement coverage
+- Branch coverage
+- Function coverage
+- Line coverage
+
+To generate an HTML coverage report, run:
+
+```bash
+npm run test:coverage -- --coverage.reporter=html
+```
+
+The HTML report is generated at `backend/coverage/index.html`.
+
+On Windows Command Prompt, open the report from the `backend/` directory using:
+
+```cmd
+start coverage\index.html
+```
+
+The generated `coverage/` directory is ignored by Git and should not be committed.
+
 ### Frontend
 
 ```bash
@@ -186,6 +222,7 @@ bash scripts/gen-dev-certs.sh
 
 ```powershell
 New-Item -ItemType Directory -Force certs | Out-Null
+
 docker run --rm -v "${PWD}/certs:/certs" alpine/openssl req -x509 -nodes -newkey rsa:2048 -sha256 -days 365 -keyout /certs/privkey.pem -out /certs/fullchain.pem -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 ```
 
