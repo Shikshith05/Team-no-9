@@ -19,3 +19,4 @@ frontend/dist/
 certs/
 *.pem
 *.key
+backend/coverage/
