@@ -29,12 +29,12 @@ function json(body, status = 200) {
 }
 
 // Answers by URL, as the backend would.
-function serve({ dashboard = () => json(SUMMARY), trend = (range) => json(trendReply(range, TWO_POINTS)) } = {}) {
+function serve({ dashboard = () => json(SUMMARY), trend = (range) => json(trendReply(range, TWO_POINTS)), alerts = [] } = {}) {
   fetch.mockImplementation(async (path) => {
     const url = new URL(path, 'http://x');
     if (url.pathname === '/api/dashboard') return dashboard();
     if (url.pathname === '/api/dashboard/trend') return trend(url.searchParams.get('range'));
-    if (url.pathname === '/api/alerts') return json({ success: true, data: [] });
+    if (url.pathname === '/api/alerts') return json({ success: true, data: alerts });
     throw new Error(`Unexpected request: ${path}`);
   });
 }
@@ -164,5 +164,20 @@ describe('Dashboard', () => {
 
     expect(await screen.findByRole('heading', { name: 'Price alerts' })).toBeTruthy();
     expect(await screen.findByText('No saved alerts yet.')).toBeTruthy();
+  });
+
+  it('shows when a saved portfolio price alert has triggered', async () => {
+    serve({ alerts: [{
+      id: 1,
+      assetType: 'stock',
+      condition: 'ABOVE',
+      targetPrice: '250.00',
+      triggeredAt: '2026-11-16T12:00:00.000Z',
+      triggeredValue: '275.00',
+    }] });
+    render(<Dashboard />);
+
+    expect(await screen.findByText(/STOCK — ABOVE/)).toBeTruthy();
+    expect(screen.getByText(/Triggered at/).textContent).toContain('275.00');
   });
 });

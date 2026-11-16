@@ -7,6 +7,8 @@ exports.listAlerts = async (req, res) => {
   const result = await pool.query(
     `SELECT id, asset_type AS "assetType",
             condition, target_price AS "targetPrice",
+            triggered_at AS "triggeredAt",
+            triggered_value AS "triggeredValue",
             created_at AS "createdAt"
      FROM user_alerts
      WHERE user_id = $1
@@ -50,6 +52,8 @@ exports.createAlert = async (req, res) => {
      VALUES ($1, $2, $3, $4)
      RETURNING id, asset_type AS "assetType",
                condition, target_price AS "targetPrice",
+               triggered_at AS "triggeredAt",
+               triggered_value AS "triggeredValue",
                created_at AS "createdAt"`,
     [req.user.id, assetType, condition, Number(targetPrice)]
   );

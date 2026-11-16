@@ -92,6 +92,51 @@ describe("B8 - Stock market refresh", () => {
 });
 
 describe("B26 - stock refresh revalues assets (PWM-F-020, TC-Val-01)", () => {
+  it("triggers an ABOVE portfolio alert after a complete stock refresh and persists it once", async () => {
+    const alice = await createLoggedInUser("alert-alice@example.com");
+    const bob = await createLoggedInUser("alert-bob@example.com");
+    await stock(alice.auth, "RELIANCE", "2");
+    await stock(alice.auth, "TCS", "1");
+    await stock(bob.auth, "RELIANCE", "1");
+
+    const createAlert = (auth, targetPrice) => request(app)
+      .post("/api/alerts")
+      .set("Authorization", auth)
+      .send({ assetType: "stock", condition: "ABOVE", targetPrice });
+    const aliceAlert = await createAlert(alice.auth, 250);
+    const bobAlert = await createAlert(bob.auth, 500);
+    stubProviders({ "NSE/RELIANCE": 100, "NSE/TCS": 50 });
+
+    await refreshStockPrices();
+
+    const aliceAlerts = (await request(app).get("/api/alerts").set("Authorization", alice.auth)).body.data;
+    const bobAlerts = (await request(app).get("/api/alerts").set("Authorization", bob.auth)).body.data;
+    expect(aliceAlerts[0]).toMatchObject({ id: aliceAlert.body.data.id, triggeredValue: "250.00" });
+    expect(aliceAlerts[0].triggeredAt).toBeTruthy();
+    expect(bobAlerts[0]).toMatchObject({ id: bobAlert.body.data.id, triggeredAt: null, triggeredValue: null });
+
+    // The alert is one-shot: a later refresh does not overwrite its trigger value/time.
+    stubProviders({ "NSE/RELIANCE": 200, "NSE/TCS": 100 });
+    await refreshStockPrices();
+    const afterSecondRefresh = (await request(app).get("/api/alerts").set("Authorization", alice.auth)).body.data[0];
+    expect(afterSecondRefresh.triggeredAt).toBe(aliceAlerts[0].triggeredAt);
+    expect(afterSecondRefresh.triggeredValue).toBe("250.00");
+  });
+
+  it("does not trigger a stock alert from a partial refresh", async () => {
+    const user = await createLoggedInUser("partial-refresh@example.com");
+    await stock(user.auth, "FAIL", "1");
+    await stock(user.auth, "SUCCESS", "1");
+    await request(app).post("/api/alerts").set("Authorization", user.auth)
+      .send({ assetType: "stock", condition: "ABOVE", targetPrice: 50 });
+    stubProviders({ "NSE/FAIL": "fail", "NSE/SUCCESS": 100 });
+
+    await refreshStockPrices();
+
+    const alerts = (await request(app).get("/api/alerts").set("Authorization", user.auth)).body.data;
+    expect(alerts[0]).toMatchObject({ triggeredAt: null, triggeredValue: null });
+  });
+
   it("sets each holding to quantity x new price and writes a MARKET valuation with the unit price", async () => {
     const alice = await createLoggedInUser("alice@example.com");
     const bob = await createLoggedInUser("bob@example.com");
@@ -226,6 +271,21 @@ describe("B26 - stock refresh revalues assets (PWM-F-020, TC-Val-01)", () => {
 });
 
 describe("B26 - gold refresh revalues assets (PWM-F-021, TC-Val-02)", () => {
+  it("triggers a BELOW portfolio alert using the refreshed gold holdings total", async () => {
+    const user = await createLoggedInUser("gold-alert@example.com");
+    await gold(user.auth, 22, "1.000");
+    const created = await request(app).post("/api/alerts").set("Authorization", user.auth)
+      .send({ assetType: "gold", condition: "BELOW", targetPrice: 7000 });
+    stubProviders({ gold: 7200 }); // 22K holding value is 6,600.
+
+    await refreshGoldPrices();
+
+    const alert = (await request(app).get("/api/alerts").set("Authorization", user.auth)).body.data[0];
+    expect(alert.id).toBe(created.body.data.id);
+    expect(alert.triggeredAt).toBeTruthy();
+    expect(alert.triggeredValue).toBe("6600.00");
+  });
+
   it("values each purity from the 24K rate per gram: weight x rate24 x karat / 24", async () => {
     const alice = await createLoggedInUser("alice@example.com");
     const bob = await createLoggedInUser("bob@example.com");
