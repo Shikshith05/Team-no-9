@@ -98,8 +98,8 @@ Release status (`fix/bug-bash` → `main`):
 - **Steps to reproduce (before):** run the stock refresh with one failing ticker. The job stops and every stock is marked stale.
 - **Root cause:** the refresh handled a failure for the whole run, not for each ticker.
 - **Fix / tests:** Merged via PR #72. Each ticker is handled separately and only the failing one is marked stale; covered in `backend/tests/marketRefresh.test.js`.
-
 ### B9 – Market-price cache semantics and valuation history during refresh (#67) – Open, PR #76, not in this release
+
 - **Steps to reproduce:** compare `market_price_cache.price` for a stock and a gold holding: one is a per-share price, the other a total holding value. After a successful refresh, `valuations` has no new rows.
 - **Root cause:** the two asset classes use one column with different meanings, and the refresh job never writes valuation history.
 - **Fix / tests:** in PR #76 (Rushikesh), which is not part of the Sprint 3 release. Until it lands, the `value` of stock and gold assets is what the user entered and is not revalued automatically from the price feeds.
@@ -246,13 +246,14 @@ Release status (`fix/bug-bash` → `main`):
   - `frontend/e2e/assets.spec.js` (mock data): add, edit and delete with net worth following, plus the form for every type and the dialog at 360, 768 and 1280 px.
   - `frontend/e2e-real/assets.spec.js` (real backend): log in, add each type through the form, edit, delete; the dashboard total changes each time.
   - `docs/responsive-test-log.md` updated.
-
 ### B25 – No rate limiting on /api/auth/* – Fixed in PR #86
-- **Requirement:** SAD 3.9 (rate limiting on the authentication endpoints).
-- **Steps to reproduce (before):** send many POST /api/auth/login (or orgot-password) requests in a row. None is throttled; only the per-account lockout (PRJ-SR-005) applies.
-- **Root cause:** express-rate-limit was not configured on the authentication routes, and Express 	rust proxy was unset behind the Nginx reverse proxy.
-- **Fix:** added express-rate-limit middleware scoped to POST /api/auth/login, /register, /forgot-password, and /reset-password (configurable via AUTH_RATE_LIMIT, default 10 requests per 15-minute window, with skipSuccessfulRequests: true on login), enabled pp.set('trust proxy', 1), and formatted 429 responses in the standard SAD error envelope (TOO_MANY_REQUESTS).
-- **Tests:** ackend/tests/rateLimit.test.js (throttling across all 4 auth POST routes, 429 SAD error shape, successful login skipped from counter, X-Forwarded-For proxy handling); all 227 backend tests pass.
+- **Requirement:** SAD 3.9 (rate limiting on authentication endpoints).
+- **Root cause:** Rate limiting middleware was not configured on the authentication routes.
+- **Fix:** Added `express-rate-limit` middleware to POST `/api/auth/login`, `/register`, `/forgot-password`, and `/reset-password`. The limit is configurable through `AUTH_RATE_LIMIT`, defaulting to 10 requests per 15-minute window. Login uses `skipSuccessfulRequests`. HTTP 429 responses use the SAD error format with code `TOO_MANY_REQUESTS`.
+- **Tests:** `backend/tests/auth.ratelimit.test.js` – 3 tests passed on `main` on 2026-11-16:
+  - Failed login attempts return HTTP 429 in the SAD error format.
+  - Logout is not rate-limited.
+  - Different client IPs use separate rate-limit buckets.
 ### B26 – Market refresh never revalues stock and gold in `assets` (B9, #67) – Fixed, supersedes PR #76
 - **Requirement:** PWM-F-020 and PWM-F-021 (High; TC-Val-01, TC-Val-02), PWM-F-023 (High), PWM-F-024 (Medium, stale flag only); SAD 4.4 `price_cache`, 4.5, 4.6.
 - **Steps to reproduce (before):** add a stock (RELIANCE, 10 shares, value 28000) and 22K gold (20 g, value 120000). Start the backend with both price feed URLs set. The refresh logs success, but `GET /api/assets` still shows 28000 and 120000, `GET /api/valuations/history` has no MARKET rows, and the dashboard total does not change. `PUT /api/assets/:id/valuation` refuses stock and gold (422 MARKET_VALUED), so only editing the asset can change their value.
@@ -346,7 +347,7 @@ Run on `fix/bug-bash` at `f6cffbba8f81f57e0a03d2ff2a4d080400f0a939` ("Merge pull
 
 ### Known limitations in this release
 - **B9 (#67, PR #76):** fixed by B26 once merged. Until a price provider is configured (`STOCK_PRICE_API_URL`, `GOLD_PRICE_API_URL`), the scheduler stays off and stock and gold keep the value the user entered.
-- **B25 (PR #86):** no rate limiting on `/api/auth/*` (SAD 3.9).
+
 - **No email service** for password-reset links. Outside production the link is printed to the backend console; in production (including the Docker setup) nothing is sent or logged, so users cannot reset their password until an email provider is added.
 - No admin module.
 - No percentage-threshold alerts (only price alerts).
