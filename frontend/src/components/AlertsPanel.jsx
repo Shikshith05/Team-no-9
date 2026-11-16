@@ -17,8 +17,11 @@ export default function AlertsPanel() {
   // Load saved alerts belonging to the logged-in user.
   useEffect(() => {
     let active = true;
+    let loading = false;
 
     const loadAlerts = async () => {
+      if (loading) return;
+      loading = true;
       try {
         const result = await apiFetch('/api/alerts');
 
@@ -30,6 +33,7 @@ export default function AlertsPanel() {
           setError(err.message || 'Could not load saved alerts. Please log in.');
         }
       } finally {
+        loading = false;
         if (active) {
           setLoadingAlerts(false);
         }
@@ -37,9 +41,12 @@ export default function AlertsPanel() {
     };
 
     loadAlerts();
+    // The backend scheduler may trigger alerts while the dashboard is open.
+    const refreshTimer = window.setInterval(loadAlerts, 60_000);
 
     return () => {
       active = false;
+      window.clearInterval(refreshTimer);
     };
   }, []);
 
@@ -81,6 +88,7 @@ export default function AlertsPanel() {
   return (
     <section className="card alerts-panel" aria-labelledby="alerts-heading">
       <h2 id="alerts-heading" className="card-title">Price alerts</h2>
+      <p className="muted">Alerts compare your total stock or gold holdings with the target after a successful price refresh.</p>
 
       <div className="alerts-form">
         <select
@@ -136,6 +144,11 @@ export default function AlertsPanel() {
           {savedAlerts.map((alert) => (
             <li key={alert.id}>
               {alert.assetType.toUpperCase()} — {alert.condition} {formatINR(alert.targetPrice)}
+              {alert.triggeredAt ? (
+                <span> — Triggered at {formatINR(alert.triggeredValue)}</span>
+              ) : (
+                <span className="muted"> — Waiting for target</span>
+              )}
             </li>
           ))}
         </ul>

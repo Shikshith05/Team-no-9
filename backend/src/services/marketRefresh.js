@@ -22,6 +22,7 @@
 // The scheduler (refreshScheduler.js) runs this for every user's holdings; no
 // user request is involved, so there is no caller to scope by.
 const pool = require("../config/db");
+const { evaluatePortfolioAlerts } = require("./alertEvaluation");
 
 const REQUEST_TIMEOUT_MS = 8000;
 const MAX_ERROR_LENGTH = 500;
@@ -202,6 +203,12 @@ async function refreshStockPrices() {
     }
   }
 
+  // A stock alert is for the user's combined stock portfolio. Evaluate only
+  // after every instrument succeeded, so a partial refresh cannot trigger it.
+  if (instruments.rowCount > 0 && failed.length === 0) {
+    await evaluatePortfolioAlerts("stock");
+  }
+
   return {
     success: failed.length === 0,
     total: instruments.rowCount,
@@ -286,6 +293,10 @@ async function refreshGoldPrices() {
       failed.push({ purity: `${karat}K`, error: error.message });
       console.error(`Gold refresh failed for ${karat}K:`, error.message);
     }
+  }
+
+  if (purities.rowCount > 0 && failed.length === 0) {
+    await evaluatePortfolioAlerts("gold");
   }
 
   return {
