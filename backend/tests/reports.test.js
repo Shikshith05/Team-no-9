@@ -14,28 +14,50 @@ import {
 } from "./helpers";
 
 // Text drawn in a PDFKit document: inflate each content stream, then decode
-// the hex strings PDFKit writes for the standard fonts ("<4d79...> Tj").
+// both the hex strings ("<4d79...> Tj") and literal strings ("(text) Tj").
 function pdfText(buffer) {
   const raw = buffer.toString("latin1");
   let text = "";
 
-  for (const match of raw.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
-    let content;
+  // 1. Primary extractor: read streams using their declared /Length attribute
+  for (const match of raw.matchAll(/\/Length\s+(\d+)[^>]*>>\s*stream\r?\n/g)) {
+    const streamLen = parseInt(match[1], 10);
+    const streamStart = match.index + match[0].length;
+    const streamBuf = buffer.subarray(streamStart, streamStart + streamLen);
 
     try {
-      content = zlib
-        .inflateSync(Buffer.from(match[1], "latin1"))
-        .toString("latin1");
+      const content = zlib.inflateSync(streamBuf).toString("latin1");
+      for (const line of content.split("\n")) {
+        const hex = [...line.matchAll(/<([0-9a-fA-F]+)>/g)]
+          .map((m) => Buffer.from(m[1], "hex").toString("latin1"));
+        if (hex.length > 0) text += hex.join("") + "\n";
+
+        const lit = [...line.matchAll(/\(([^)]+)\)/g)].map((m) => m[1]);
+        if (lit.length > 0) text += lit.join("") + "\n";
+      }
     } catch {
-      continue;
+      // Continue to next stream
     }
+  }
 
-    for (const line of content.split("\n")) {
-      const hex = [...line.matchAll(/<([0-9a-fA-F]+)>/g)]
-        .map((m) => Buffer.from(m[1], "hex").toString("latin1"));
+  // 2. Fallback extractor: regex stream delimiters if /Length parsing yielded no text
+  if (!text.trim()) {
+    for (const match of raw.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+      try {
+        const content = zlib
+          .inflateSync(Buffer.from(match[1], "latin1"))
+          .toString("latin1");
 
-      if (hex.length > 0) {
-        text += hex.join("") + "\n";
+        for (const line of content.split("\n")) {
+          const hex = [...line.matchAll(/<([0-9a-fA-F]+)>/g)]
+            .map((m) => Buffer.from(m[1], "hex").toString("latin1"));
+          if (hex.length > 0) text += hex.join("") + "\n";
+
+          const lit = [...line.matchAll(/\(([^)]+)\)/g)].map((m) => m[1]);
+          if (lit.length > 0) text += lit.join("") + "\n";
+        }
+      } catch {
+        continue;
       }
     }
   }
